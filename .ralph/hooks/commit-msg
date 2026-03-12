@@ -1,0 +1,22 @@
+#!/bin/bash
+# commit-msg hook: WI-[type] 커밋 메시지 형식 강제
+
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
+MSG=$(cat "$1")
+
+# WI-[type] 형식 검증
+if ! echo "$MSG" | grep -qP '^WI-(feat|fix|docs|style|refactor|test|chore|perf|ci|revert) '; then
+  echo "❌ 커밋 메시지 형식 오류"
+  echo ""
+  echo "올바른 형식: WI-[type] 한글 작업명"
+  echo "허용 타입: feat, fix, docs, style, refactor, test, chore, perf, ci, revert"
+  echo ""
+  echo "예시:"
+  echo "  WI-feat 사용자 인증 추가"
+  echo "  WI-fix 로그인 토큰 만료 처리"
+  echo ""
+  echo "입력한 메시지: $MSG"
+  exit 1
+fi

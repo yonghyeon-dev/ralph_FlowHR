@@ -1,0 +1,36 @@
+name: Commit Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-commits:
+    name: check-commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        run: |
+          BASE_SHA=${{ github.event.pull_request.base.sha }}
+          HEAD_SHA=${{ github.event.pull_request.head.sha }}
+
+          INVALID=0
+          while IFS= read -r MSG; do
+            if ! echo "$MSG" | grep -qP '^WI-(feat|fix|docs|style|refactor|test|chore|perf|ci|revert) '; then
+              echo "❌ Invalid commit message: $MSG"
+              INVALID=1
+            else
+              echo "✅ $MSG"
+            fi
+          done < <(git log --format='%s' "$BASE_SHA".."$HEAD_SHA")
+
+          if [ "$INVALID" -eq 1 ]; then
+            echo ""
+            echo "커밋 메시지 형식: WI-[type] 한글 작업명"
+            echo "허용 타입: feat, fix, docs, style, refactor, test, chore, perf, ci, revert"
+            exit 1
+          fi

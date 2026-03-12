@@ -1,0 +1,23 @@
+#!/bin/bash
+# pre-push hook: main 직접 push 방지
+
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+if [ "$BRANCH" = "main" ]; then
+  # 초기 셋업, PRD, fix_plan 커밋은 예외 허용
+  LAST_MSG=$(git log -1 --format='%s')
+  if echo "$LAST_MSG" | grep -qP '^WI-(chore|docs) .*(초기|셋업|PRD|fix_plan|환경)'; then
+    exit 0
+  fi
+
+  echo "❌ main 브랜치에 직접 push할 수 없습니다."
+  echo ""
+  echo "PR을 통해서만 main에 머지하세요:"
+  echo "  1. feature 브랜치 생성: git checkout -b feature/WI-feat-작업명"
+  echo "  2. 커밋 후 push: git push -u origin feature/WI-feat-작업명"
+  echo "  3. PR 생성: gh pr create"
+  exit 1
+fi
