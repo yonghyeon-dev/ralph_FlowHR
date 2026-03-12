@@ -38,7 +38,7 @@
 - [x] WI-013-feat Attendance DB 스키마 (AttendanceRecord, Shift, ShiftAssignment, Exception, Closing + 시드) | L1:Attendance > L2:DB > L3:근태모델
 
 ### L1: Attendance > L2: 대시보드 + 교대 + 기록 + 예외 + 마감
-- [ ] WI-014-feat 근태 대시보드 (4 KPI, 부서별 출근율 차트, 5탭 네비) | L1:Attendance > L2:대시보드 > L3:KPI
+- [x] WI-014-feat 근태 대시보드 (4 KPI, 부서별 출근율 차트, 5탭 네비) | L1:Attendance > L2:대시보드 > L3:KPI
 - [ ] WI-015-feat 교대 보드 (주간 교대표, 교대유형 뱃지) | L1:Attendance > L2:교대 > L3:주간보드
 - [ ] WI-016-feat 출결 기록 테이블 (필터, 정렬, 페이지네이션, 상태 뱃지) | L1:Attendance > L2:기록 > L3:테이블
 - [ ] WI-017-feat 근태 예외 처리 (4유형 카드, 상세, 승인/반려) | L1:Attendance > L2:예외 > L3:처리
