@@ -13,6 +13,7 @@ const ADMIN_NAV: NavSection[] = [
     label: "인사관리",
     items: [
       { id: "people", label: "직원 관리", href: "/admin/people" },
+      { id: "org-chart", label: "조직도", href: "/admin/org-chart" },
       { id: "attendance", label: "근태 관리", href: "/admin/attendance" },
       { id: "leave", label: "휴가 관리", href: "/admin/leave" },
     ],
