@@ -27,7 +27,7 @@
 - [x] WI-008-feat People DB 스키마 (Employee, Department, Position, EmployeeChange + 시드) | L1:People > L2:DB > L3:인사모델
 
 ### L1: People > L2: 디렉토리 + 상세 + 조직도 + 이력
-- [ ] WI-009-feat 직원 디렉토리 (검색, 상태 필터, 페이지네이션) | L1:People > L2:디렉토리 > L3:목록필터
+- [x] WI-009-feat 직원 디렉토리 (검색, 상태 필터, 페이지네이션) | L1:People > L2:디렉토리 > L3:목록필터
 - [ ] WI-010-feat 직원 상세 드로어 (프로필, 시그널, 액션) | L1:People > L2:상세 > L3:프로필드로어
 - [ ] WI-011-feat 조직도 (트리 구조, 부서별 인원수) | L1:People > L2:조직도 > L3:트리
 - [ ] WI-012-feat 인사 변동 타임라인 (입사, 이동, 퇴사, 승진) | L1:People > L2:변동 > L3:타임라인
