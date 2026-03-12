@@ -29,6 +29,29 @@ enum UserStatus {
   PENDING
 }
 
+enum EmployeeStatus {
+  ACTIVE
+  ON_LEAVE
+  PENDING_RESIGNATION
+  RESIGNED
+  TERMINATED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERN
+}
+
+enum EmployeeChangeType {
+  HIRE
+  TRANSFER
+  PROMOTION
+  RESIGNATION
+  TERMINATION
+}
+
 // ─── Tenant ───────────────────────────────────────────────
 
 model Tenant {
@@ -41,8 +64,12 @@ model Tenant {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  users User[]
-  roles Role[]
+  users           User[]
+  roles           Role[]
+  departments     Department[]
+  positions       Position[]
+  employees       Employee[]
+  employeeChanges EmployeeChange[]
 }
 
 // ─── Role ─────────────────────────────────────────────────
@@ -84,6 +111,7 @@ model User {
   role     Role?     @relation(fields: [roleId], references: [id])
   accounts Account[]
   sessions Session[]
+  employee Employee?
 }
 
 // ─── Account (NextAuth compatible) ────────────────────────
@@ -126,4 +154,107 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// ─── Department ─────────────────────────────────────────────
+
+model Department {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  code        String
+  description String?
+  parentId    String?
+  managerId   String?
+  sortOrder   Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent   Department? @relation("DepartmentTree", fields: [parentId], references: [id])
+  children Department[] @relation("DepartmentTree")
+  manager  Employee?   @relation("DepartmentManager", fields: [managerId], references: [id])
+
+  employees          Employee[]
+  changesFrom        EmployeeChange[] @relation("ChangeFromDept")
+  changesTo          EmployeeChange[] @relation("ChangeToDept")
+
+  @@unique([tenantId, code])
+}
+
+// ─── Position ───────────────────────────────────────────────
+
+model Position {
+  id          String  @id @default(cuid())
+  tenantId    String
+  name        String
+  level       Int     @default(1)
+  description String?
+  sortOrder   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employees Employee[]
+  changesFrom EmployeeChange[] @relation("ChangeFromPos")
+  changesTo   EmployeeChange[] @relation("ChangeToPos")
+
+  @@unique([tenantId, name])
+}
+
+// ─── Employee ───────────────────────────────────────────────
+
+model Employee {
+  id             String          @id @default(cuid())
+  tenantId       String
+  userId         String?         @unique
+  departmentId   String?
+  positionId     String?
+  employeeNumber String
+  name           String
+  email          String
+  phone          String?
+  hireDate       DateTime
+  resignDate     DateTime?
+  status         EmployeeStatus  @default(ACTIVE)
+  type           EmploymentType  @default(FULL_TIME)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User?       @relation(fields: [userId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
+  position   Position?   @relation(fields: [positionId], references: [id])
+
+  changes            EmployeeChange[]
+  managedDepartments Department[]     @relation("DepartmentManager")
+
+  @@unique([tenantId, employeeNumber])
+}
+
+// ─── EmployeeChange ─────────────────────────────────────────
+
+model EmployeeChange {
+  id               String             @id @default(cuid())
+  tenantId         String
+  employeeId       String
+  type             EmployeeChangeType
+  description      String?
+  fromDepartmentId String?
+  toDepartmentId   String?
+  fromPositionId   String?
+  toPositionId     String?
+  effectiveDate    DateTime
+
+  createdAt DateTime @default(now())
+
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee       Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  fromDepartment Department? @relation("ChangeFromDept", fields: [fromDepartmentId], references: [id])
+  toDepartment   Department? @relation("ChangeToDept", fields: [toDepartmentId], references: [id])
+  fromPosition   Position?   @relation("ChangeFromPos", fields: [fromPositionId], references: [id])
+  toPosition     Position?   @relation("ChangeToPos", fields: [toPositionId], references: [id])
 }
