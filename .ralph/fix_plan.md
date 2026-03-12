@@ -3,7 +3,7 @@
 ## Phase 1: Foundation (기반)
 
 ### L1: Shared > L2: 프로젝트 초기 설정 > L3: Next.js + TypeScript + Prisma 셋업
-- [ ] WI-feat Next.js 프로젝트 초기화 (TypeScript strict, ESLint, Prettier, Prisma, Tailwind) | L1:Shared > L2:초기설정 > L3:프로젝트셋업
+- [x] WI-feat Next.js 프로젝트 초기화 (TypeScript strict, ESLint, Prettier, Prisma, Tailwind) | L1:Shared > L2:초기설정 > L3:프로젝트셋업
 
 ### L1: Shared > L2: 디자인 시스템 > L3: 디자인 토큰 및 기본 컴포넌트
 - [ ] WI-feat 디자인 토큰 + 기본 UI 컴포넌트 (Button, Badge, Card, Input, Select, Textarea) | L1:Shared > L2:디자인시스템 > L3:기본컴포넌트
