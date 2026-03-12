@@ -35,7 +35,7 @@
 ## Phase 4: Attendance (근태관리)
 
 ### L1: Attendance > L2: DB 스키마 > L3: 근태 데이터 모델
-- [ ] WI-013-feat Attendance DB 스키마 (AttendanceRecord, Shift, ShiftAssignment, Exception, Closing + 시드) | L1:Attendance > L2:DB > L3:근태모델
+- [x] WI-013-feat Attendance DB 스키마 (AttendanceRecord, Shift, ShiftAssignment, Exception, Closing + 시드) | L1:Attendance > L2:DB > L3:근태모델
 
 ### L1: Attendance > L2: 대시보드 + 교대 + 기록 + 예외 + 마감
 - [ ] WI-014-feat 근태 대시보드 (4 KPI, 부서별 출근율 차트, 5탭 네비) | L1:Attendance > L2:대시보드 > L3:KPI
