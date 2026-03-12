@@ -14,6 +14,7 @@ const ADMIN_NAV: NavSection[] = [
     items: [
       { id: "people", label: "직원 관리", href: "/admin/people" },
       { id: "org-chart", label: "조직도", href: "/admin/org-chart" },
+      { id: "changes", label: "인사 변동", href: "/admin/people/changes" },
       { id: "attendance", label: "근태 관리", href: "/admin/attendance" },
       { id: "leave", label: "휴가 관리", href: "/admin/leave" },
     ],
@@ -39,6 +40,7 @@ const ADMIN_NAV: NavSection[] = [
 
 function getActiveId(pathname: string): string {
   if (pathname === "/admin") return "home";
+  if (pathname === "/admin/people/changes") return "changes";
   const segment = pathname.split("/")[2];
   return segment ?? "home";
 }
