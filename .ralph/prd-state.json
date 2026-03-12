@@ -1,0 +1,76 @@
+{
+  "step": 6,
+  "project_name": "ralph_FlowHR",
+  "overview": {
+    "name": "FlowHR",
+    "goal": "FlowHR 와이어프레임을 프로덕션급 HR SaaS 플랫폼으로 구현",
+    "users": "Platform Operator, Tenant Admin (HR 관리자), Tenant Employee (직원)",
+    "criteria": "와이어프레임 28+ 스크린 전체를 프로덕션 품질로 구현"
+  },
+  "tech_stack": {
+    "language": "TypeScript",
+    "framework": "Next.js (App Router)",
+    "db": "PostgreSQL + Prisma ORM",
+    "auth": "NextAuth.js",
+    "styling": "Tailwind CSS (디자인 시스템 토큰 기반)",
+    "test": "Vitest + Playwright",
+    "reason": "멀티테넌트 SaaS, SSR+API 통합, 프로덕션급 요구"
+  },
+  "L1": [
+    { "name": "Shared", "confirmed": true },
+    { "name": "Auth", "confirmed": true },
+    { "name": "People", "confirmed": true },
+    { "name": "Attendance", "confirmed": true },
+    { "name": "Leave", "confirmed": true },
+    { "name": "Workflow", "confirmed": true },
+    { "name": "Documents", "confirmed": true },
+    { "name": "Payroll", "confirmed": true },
+    { "name": "Performance", "confirmed": true },
+    { "name": "Recruiting", "confirmed": true },
+    { "name": "Reports", "confirmed": true },
+    { "name": "Settings", "confirmed": true },
+    { "name": "Employee Portal", "confirmed": true },
+    { "name": "Platform Console", "confirmed": true }
+  ],
+  "decisions": [
+    {
+      "topic": "프레임워크",
+      "chosen": "Next.js (App Router)",
+      "rejected": "Remix, Nuxt.js",
+      "reason": "사용자 선택: SSR+API 통합, Vercel 배포 최적",
+      "turn": 3
+    },
+    {
+      "topic": "DB",
+      "chosen": "PostgreSQL + Prisma",
+      "rejected": "MySQL, MongoDB",
+      "reason": "사용자 선택: 멀티테넌트 SaaS에 최적",
+      "turn": 3
+    },
+    {
+      "topic": "MVP 범위",
+      "chosen": "전체 구현 (28+ 스크린)",
+      "rejected": "Core 우선",
+      "reason": "사용자 요청: 와이어프레임 전체를 프로덕션급으로",
+      "turn": 3
+    },
+    {
+      "topic": "아키텍처",
+      "chosen": "경계 분리 → 모듈화 → 캡슐화 (module/index.ts + internal/)",
+      "rejected": null,
+      "reason": "사용자 지정 아키텍처 패턴",
+      "turn": 2
+    }
+  ],
+  "user_constraints": [
+    "경계 분리 → 모듈화 → 캡슐화 아키텍처",
+    "module/index.ts (Public API) + module/internal/ (Private) 패턴",
+    "같은 UI/로직 2번 이상 → 컴포넌트 분리",
+    "하드코딩 금지 → constants/ 또는 설정 파일",
+    "UTF-8 (BOM 없음) 필수",
+    "프로덕션급 품질"
+  ],
+  "draft_ready": true,
+  "confirmed": true,
+  "updated_at": "2026-03-13T00:10:00"
+}
