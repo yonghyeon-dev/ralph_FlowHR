@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui";
 import type { BadgeVariant } from "@/components/ui";
 import { DataTable } from "@/components/ui";
 import type { Column } from "@/components/ui";
+import { EmployeeDetailDrawer } from "./EmployeeDetailDrawer";
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -62,6 +63,7 @@ export default function PeoplePage() {
     totalPages: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
 
   const fetchEmployees = useCallback(async () => {
     setLoading(true);
@@ -223,6 +225,8 @@ export default function PeoplePage() {
             columns={columns}
             data={employees}
             keyExtractor={(row) => row.id}
+            onRowClick={(row) => setSelectedEmployeeId(row.id)}
+            activeRowKey={selectedEmployeeId ?? undefined}
           />
         )}
 
@@ -269,6 +273,10 @@ export default function PeoplePage() {
           </div>
         )}
       </div>
+      <EmployeeDetailDrawer
+        employeeId={selectedEmployeeId}
+        onClose={() => setSelectedEmployeeId(null)}
+      />
     </div>
   );
 }
