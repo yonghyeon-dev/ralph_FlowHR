@@ -7,7 +7,7 @@
 
 ### L1: Shared > L2: 디자인 시스템 > L3: 디자인 토큰 및 기본 컴포넌트
 - [x] WI-002-feat 디자인 토큰 + 기본 UI 컴포넌트 (Button, Badge, Card, Input, Select, Textarea) | L1:Shared > L2:디자인시스템 > L3:기본컴포넌트
-- [ ] WI-003-feat 데이터 디스플레이 컴포넌트 (DataTable, KPICard, QueueList, Chart, StatusBadge, ProgressBar) | L1:Shared > L2:디자인시스템 > L3:데이터컴포넌트
+- [x] WI-003-feat 데이터 디스플레이 컴포넌트 (DataTable, KPICard, QueueList, Chart, StatusBadge, ProgressBar) | L1:Shared > L2:디자인시스템 > L3:데이터컴포넌트
 
 ### L1: Shared > L2: 레이아웃 > L3: 앱 셸
 - [ ] WI-004-feat 앱 셸 레이아웃 (Header, Sidebar 3종, Drawer, Modal, Toast, 반응형) | L1:Shared > L2:레이아웃 > L3:앱셸
