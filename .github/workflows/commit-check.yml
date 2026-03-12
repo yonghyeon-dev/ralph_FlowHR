@@ -26,9 +26,15 @@ jobs:
 
           PATTERN="^WI-[0-9]{3,4}-(feat|fix|docs|style|refactor|test|chore|perf|ci|revert) .+"
           PATTERN_SYSTEM="^WI-(chore|docs) .+"
+          PATTERN_MERGE="^Merge "
           FAILED=0
 
           while IFS= read -r msg; do
+            # GitHub 자동 생성 Merge 커밋은 스킵
+            if [[ "$msg" =~ $PATTERN_MERGE ]]; then
+              echo "SKIP (merge): '$msg'"
+              continue
+            fi
             if [[ ! "$msg" =~ $PATTERN && ! "$msg" =~ $PATTERN_SYSTEM ]]; then
               echo "FAIL: '$msg'"
               echo "  Expected: WI-NNN-[type] 한글 작업명  (NNN = 3자리 순번)"
