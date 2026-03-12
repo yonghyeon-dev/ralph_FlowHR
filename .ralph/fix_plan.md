@@ -24,7 +24,7 @@
 ## Phase 3: People (인사관리)
 
 ### L1: People > L2: DB 스키마 > L3: 인사 데이터 모델
-- [ ] WI-008-feat People DB 스키마 (Employee, Department, Position, EmployeeChange + 시드) | L1:People > L2:DB > L3:인사모델
+- [x] WI-008-feat People DB 스키마 (Employee, Department, Position, EmployeeChange + 시드) | L1:People > L2:DB > L3:인사모델
 
 ### L1: People > L2: 디렉토리 + 상세 + 조직도 + 이력
 - [ ] WI-009-feat 직원 디렉토리 (검색, 상태 필터, 페이지네이션) | L1:People > L2:디렉토리 > L3:목록필터
