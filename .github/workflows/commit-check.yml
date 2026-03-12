@@ -1,36 +1,48 @@
-name: Commit Check
+name: Commit Message Check
 
 on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   check-commits:
-    name: check-commits
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Validate commit messages
+      - name: Validate WI commit format
         run: |
-          BASE_SHA=${{ github.event.pull_request.base.sha }}
-          HEAD_SHA=${{ github.event.pull_request.head.sha }}
+          COMMITS=$(git log origin/main..HEAD --pretty=format:"%s")
+          if [ -z "$COMMITS" ]; then
+            echo "No new commits to check (PR has no commits beyond main) - skipping validation"
+            exit 0
+          fi
 
-          INVALID=0
-          while IFS= read -r MSG; do
-            if ! echo "$MSG" | grep -qP '^WI-(feat|fix|docs|style|refactor|test|chore|perf|ci|revert) '; then
-              echo "❌ Invalid commit message: $MSG"
-              INVALID=1
+          PATTERN="^WI-[0-9]{3,4}-(feat|fix|docs|style|refactor|test|chore|perf|ci|revert) .+"
+          PATTERN_SYSTEM="^WI-(chore|docs) .+"
+          FAILED=0
+
+          while IFS= read -r msg; do
+            if [[ ! "$msg" =~ $PATTERN && ! "$msg" =~ $PATTERN_SYSTEM ]]; then
+              echo "FAIL: '$msg'"
+              echo "  Expected: WI-NNN-[type] 한글 작업명  (NNN = 3자리 순번)"
+              echo "  Types: feat, fix, docs, style, refactor, test, chore, perf, ci, revert"
+              echo "  System commits (no number): WI-chore ..., WI-docs ..."
+              FAILED=1
             else
-              echo "✅ $MSG"
+              echo "OK: '$msg'"
             fi
-          done < <(git log --format='%s' "$BASE_SHA".."$HEAD_SHA")
+          done <<< "$COMMITS"
 
-          if [ "$INVALID" -eq 1 ]; then
+          if [ $FAILED -eq 1 ]; then
             echo ""
-            echo "커밋 메시지 형식: WI-[type] 한글 작업명"
-            echo "허용 타입: feat, fix, docs, style, refactor, test, chore, perf, ci, revert"
+            echo "Commit message format: WI-NNN-[type] 작업 설명"
+            echo "Example: WI-001-feat 사용자 인증 추가"
             exit 1
           fi

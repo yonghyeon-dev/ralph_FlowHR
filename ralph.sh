@@ -25,12 +25,18 @@ if [[ -f .ralphrc ]]; then
 fi
 
 # Defaults (위에서 .ralphrc가 설정하지 않은 값만 적용)
+# MAX_ITERATIONS: fix_plan의 전체 WI 수 + 20% 여유 (검증 재시도 감안)
+FIX_PLAN="${FIX_PLAN:-.ralph/fix_plan.md}"
+if [[ -z "${MAX_ITERATIONS:-}" && -f "$FIX_PLAN" ]]; then
+  _total_wi=$(awk '/^```/{f=!f} !f && /^\- \[[ x]\]/{c++} END{print c+0}' "$FIX_PLAN" 2>/dev/null)
+  MAX_ITERATIONS=$(( _total_wi + _total_wi / 5 + 1 ))
+  unset _total_wi
+fi
 MAX_ITERATIONS=${MAX_ITERATIONS:-50}
 RATE_LIMIT_PER_HOUR=${RATE_LIMIT_PER_HOUR:-80}
 COOLDOWN_SEC=${COOLDOWN_SEC:-5}
 ERROR_COOLDOWN_SEC=${ERROR_COOLDOWN_SEC:-30}
 PROMPT_FILE="${PROMPT_FILE:-.ralph/PROMPT.md}"
-FIX_PLAN="${FIX_PLAN:-.ralph/fix_plan.md}"
 LOG_DIR=".ralph/logs"
 ALLOWED_TOOLS="${ALLOWED_TOOLS:-Edit,Write,Read,Bash,Glob,Grep}"
 
@@ -42,6 +48,94 @@ last_git_sha=""
 last_commit_msg=""
 rate_limit_start=$(date +%s)
 NO_PROGRESS_LIMIT=${NO_PROGRESS_LIMIT:-3}
+
+# Session continuity (토큰 절약)
+CONTEXT_THRESHOLD=${CONTEXT_THRESHOLD:-150000}  # 75% of 200k — 이 이상이면 새 세션
+current_session_id=""
+total_cost_usd=0
+
+# 상태 파일 (비정상 종료 복구용)
+STATE_FILE=".ralph/loop_state.json"
+
+save_state() {
+  cat > "$STATE_FILE" <<EOF
+{
+  "loop_count": $loop_count,
+  "call_count": $call_count,
+  "session_id": "$current_session_id",
+  "total_cost_usd": $total_cost_usd,
+  "last_git_sha": "$last_git_sha",
+  "timestamp": "$(date '+%Y-%m-%d %H:%M:%S')",
+  "status": "${1:-running}"
+}
+EOF
+}
+
+restore_state() {
+  if [[ -f "$STATE_FILE" ]]; then
+    local prev_status prev_loop prev_time prev_cost prev_sha
+    prev_status=$(sed -n 's/.*"status"\s*:\s*"\([^"]*\)".*/\1/p' "$STATE_FILE" 2>/dev/null || echo "unknown")
+    prev_loop=$(sed -n 's/.*"loop_count"\s*:\s*\([0-9]*\).*/\1/p' "$STATE_FILE" 2>/dev/null || echo "0")
+    prev_time=$(sed -n 's/.*"timestamp"\s*:\s*"\([^"]*\)".*/\1/p' "$STATE_FILE" 2>/dev/null || echo "unknown")
+    prev_cost=$(sed -n 's/.*"total_cost_usd"\s*:\s*\([0-9.]*\).*/\1/p' "$STATE_FILE" 2>/dev/null || echo "0")
+    prev_sha=$(sed -n 's/.*"last_git_sha"\s*:\s*"\([^"]*\)".*/\1/p' "$STATE_FILE" 2>/dev/null || echo "")
+
+    # 현재 git SHA와 비교 → 수동 변경 감지
+    local current_sha
+    current_sha=$(git rev-parse HEAD 2>/dev/null || echo "none")
+
+    if [[ "$prev_status" == "running" || "$prev_status" == "crashed" ]]; then
+      log "⚠️ 이전 실행이 비정상 종료됨 (Iteration $prev_loop, $prev_time)"
+
+      if [[ -n "$prev_sha" && "$prev_sha" != "$current_sha" ]]; then
+        # 코드가 변경됨 → 세션 재활용 불가
+        log "🔀 마지막 실행 이후 코드 변경 감지 (수동 작업 있음)"
+        log "   이전 세션 무효화 → 새 세션으로 시작합니다"
+        current_session_id=""
+      else
+        # 코드 변경 없음 → 이전 세션 재활용 가능
+        local prev_session
+        prev_session=$(sed -n 's/.*"session_id"\s*:\s*"\([^"]*\)".*/\1/p' "$STATE_FILE" 2>/dev/null || echo "")
+        if [[ -n "$prev_session" ]]; then
+          current_session_id="$prev_session"
+          log "🔄 이전 세션 복구: ${prev_session:0:8}..."
+        fi
+      fi
+
+      log "📋 fix_plan.md 기준으로 미완료 WI부터 재개합니다"
+      total_cost_usd=$prev_cost
+    elif [[ "$prev_status" == "completed" ]]; then
+      log "✅ 이전 실행 정상 완료됨. 새로 시작합니다."
+    fi
+  fi
+}
+
+cleanup() {
+  local exit_code=$?
+  printf "\n"
+  if [[ $exit_code -ne 0 ]]; then
+    log "⚠️ 비정상 종료 (exit code: $exit_code)"
+    save_state "crashed"
+  fi
+  # 미머지 PR 확인
+  local open_prs
+  open_prs=$(gh pr list --state open --json number,title 2>/dev/null || echo "")
+  if [[ -n "$open_prs" && "$open_prs" != "[]" ]]; then
+    log "📌 미머지 PR 있음:"
+    echo "$open_prs" | sed -n 's/.*"title"\s*:\s*"\([^"]*\)".*/\1/p' | while read -r title; do
+      log "  - $title"
+    done
+  fi
+  local counts
+  counts=$(count_tasks)
+  local completed="${counts%% *}"
+  local remaining="${counts##* }"
+  log "=== Ralph Loop 종료 (${loop_count} iterations) ==="
+  log "최종: ${completed} 완료, ${remaining} 남음"
+  log "💡 재실행: bash ralph.sh (미완료 WI부터 자동 재개)"
+}
+
+trap cleanup EXIT
 
 mkdir -p "$LOG_DIR"
 
@@ -146,6 +240,11 @@ validate_post_iteration() {
   return 0
 }
 
+get_current_wi() {
+  # fix_plan.md에서 첫 번째 미완료 WI 이름 추출
+  awk '/^```/{f=!f} !f && /^\- \[ \]/{sub(/^\- \[ \] /,""); sub(/ \| L1:.*$/,""); print; exit}' "$FIX_PLAN" 2>/dev/null
+}
+
 count_tasks() {
   # 코드블록 내부의 체크박스는 제외 (```로 둘러싸인 영역 밖만 카운트)
   local unchecked completed
@@ -210,7 +309,13 @@ build_context() {
   counts=$(count_tasks)
   local completed="${counts%% *}"
   local remaining="${counts##* }"
-  echo "[Ralph Loop #$loop_count] Completed: $completed | Remaining: $remaining"
+  local target_wi
+  target_wi=$(get_current_wi)
+  cat <<EOF
+[Ralph Loop #$loop_count] Completed: $completed | Remaining: $remaining
+[TARGET] ${target_wi}
+[RULE] 위 TARGET 작업 1개만 처리하고 RALPH_STATUS 출력 후 즉시 종료. 다른 WI 절대 금지.
+EOF
 }
 
 execute_claude() {
@@ -218,17 +323,79 @@ execute_claude() {
   local prompt_content
   prompt_content=$(cat "$PROMPT_FILE")
 
-  local output
-  output=$(claude -p "$prompt_content" \
+  # claude -p가 git 작업 중 삭제할 수 있으므로 매번 보장
+  mkdir -p "$LOG_DIR"
+  local logfile="$LOG_DIR/claude_output_${loop_count}.log"
+
+  # 세션 재활용 또는 새 세션 결정
+  local session_args=()
+  if [[ -n "$current_session_id" ]]; then
+    session_args=(--resume "$current_session_id")
+    log "🔄 세션 재활용: ${current_session_id:0:8}..."
+  else
+    log "🆕 새 세션 시작"
+  fi
+
+  # 백그라운드에서 claude -p 실행 (CLAUDECODE 변수를 명시적으로 제거)
+  env -u CLAUDECODE claude -p "$prompt_content" \
     --output-format json \
     --append-system-prompt "$context" \
     --allowedTools "$ALLOWED_TOOLS" \
-    2>&1) || true
+    "${session_args[@]}" \
+    > "$logfile" 2>&1 &
+  local pid=$!
+
+  # 스피너 + 브랜치/파일 상태
+  local elapsed=0
+  local spin=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+  while kill -0 "$pid" 2>/dev/null; do
+    local idx=$((elapsed % 10))
+    local file_changes
+    file_changes=$(git status --short 2>/dev/null | wc -l | tr -d ' ')
+    local current_branch
+    current_branch=$(git branch --show-current 2>/dev/null || echo "main")
+    printf "\r  ${spin[$idx]} %dm %02ds | %s | 파일: %s개  " "$((elapsed/60))" "$((elapsed%60))" "$current_branch" "$file_changes"
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  wait "$pid" || true
+  printf "\r  ✅ 완료 (%dm %02ds)                                              \n" "$((elapsed/60))" "$((elapsed%60))"
 
   call_count=$((call_count + 1))
 
-  # Save output log
-  echo "$output" > "$LOG_DIR/claude_output_${loop_count}.log"
+  # Read output from log
+  local output
+  output=$(cat "$logfile")
+
+  # 세션 ID 및 토큰 사용량 추출 (sed 사용 — Git Bash 호환)
+  local new_session_id input_tokens iteration_cost
+  new_session_id=$(echo "$output" | sed -n 's/.*"session_id"\s*:\s*"\([^"]*\)".*/\1/p' | head -1)
+  input_tokens=$(echo "$output" | sed -n 's/.*"input_tokens"\s*:\s*\([0-9]*\).*/\1/p' | head -1)
+  local cache_read=$(echo "$output" | sed -n 's/.*"cache_read_input_tokens"\s*:\s*\([0-9]*\).*/\1/p' | head -1)
+  iteration_cost=$(echo "$output" | sed -n 's/.*"total_cost_usd"\s*:\s*\([0-9.]*\).*/\1/p' | head -1)
+
+  # 총 토큰 = input + cache_read (실제 컨텍스트 크기)
+  local total_context_tokens=$(( ${input_tokens:-0} + ${cache_read:-0} ))
+
+  # 비용 표시: API 키 사용자만 (구독 사용자는 토큰만 표시)
+  if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
+    # API 키 사용자 → 비용 표시
+    if [[ -n "$iteration_cost" ]]; then
+      total_cost_usd=$(awk "BEGIN{printf \"%.2f\", $total_cost_usd + $iteration_cost}")
+    fi
+    log "📊 컨텍스트: ${total_context_tokens} tokens | 비용: \$${iteration_cost:-0} (누적: \$${total_cost_usd})"
+  else
+    # 구독(auth) 사용자 → 비용 없이 토큰만
+    log "📊 컨텍스트: ${total_context_tokens} tokens (구독 플랜 — 별도 과금 없음)"
+  fi
+
+  # 컨텍스트 임계치 체크 → 세션 리셋 여부 결정
+  if [[ $total_context_tokens -gt $CONTEXT_THRESHOLD ]]; then
+    log "⚠️ 컨텍스트 ${total_context_tokens} > ${CONTEXT_THRESHOLD} — 다음 반복에서 새 세션 시작"
+    current_session_id=""
+  elif [[ -n "$new_session_id" ]]; then
+    current_session_id="$new_session_id"
+  fi
 
   # Check for exit signal (JSON 또는 plain text 형식 모두 감지)
   if echo "$output" | grep -qE '"EXIT_SIGNAL"\s*:\s*true|EXIT_SIGNAL:\s*true'; then
@@ -251,6 +418,9 @@ main() {
   # Pre-flight checks
   preflight || exit 1
 
+  # 이전 실행 상태 복구 확인
+  restore_state
+
   log "=== Ralph Loop Started ==="
   log "Max iterations: $MAX_ITERATIONS | Rate limit: $RATE_LIMIT_PER_HOUR/hr"
   log "Allowed tools: $ALLOWED_TOOLS"
@@ -271,8 +441,18 @@ main() {
       break
     fi
 
-    # 3. Progress check (circuit breaker)
-    check_progress || break
+    # 3. 현재 WI 및 진행률 표시
+    local current_wi counts completed unchecked total wi_num
+    current_wi=$(get_current_wi)
+    counts=$(count_tasks)
+    completed="${counts%% *}"
+    unchecked="${counts##* }"
+    total=$((completed + unchecked))
+    wi_num=$((completed + 1))
+    local pct=0
+    if [[ $total -gt 0 ]]; then pct=$((completed * 100 / total)); fi
+    log "📋 WI #$wi_num/$total: $current_wi"
+    log "📊 진행률: $completed/$total ($pct%)"
 
     # 4. Rate limit
     check_rate_limit
@@ -289,6 +469,12 @@ main() {
       log "Post-validation failed - check guardrails.md"
     }
 
+    # 7. Progress check (circuit breaker) — execute 이후에 체크해야 함
+    check_progress || break
+
+    # 8. 상태 저장 (매 반복마다 — 비정상 종료 대비)
+    save_state "running"
+
     case $result in
       0) sleep "$COOLDOWN_SEC" ;;
       1) sleep "$ERROR_COOLDOWN_SEC" ;;
@@ -304,20 +490,11 @@ main() {
     esac
   done
 
-  log "=== Ralph Loop Ended ($loop_count iterations) ==="
-
-  # Final status
-  local counts
-  counts=$(count_tasks)
-  log "Final: ${counts%% *} completed, ${counts##* } remaining"
-
-  # 미머지 PR 확인
-  local open_prs
-  open_prs=$(gh pr list --state open --json number,title --jq 'length' 2>/dev/null || echo "0")
-  if [[ "$open_prs" -gt 0 ]]; then
-    log "WARNING: $open_prs open PR(s) still pending merge:"
-    gh pr list --state open --json number,title --jq '.[] | "  #\(.number) \(.title)"' 2>/dev/null || true
-    log "Run 'gh pr list' to review and merge remaining PRs."
+  # 종료 이유에 따른 상태 저장
+  if check_all_done 2>/dev/null; then
+    save_state "completed"
+  else
+    save_state "stopped"
   fi
 }
 

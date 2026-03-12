@@ -1,22 +1,27 @@
-#!/bin/bash
-# commit-msg hook: WI-[type] 커밋 메시지 형식 강제
+#!/usr/bin/env bash
+# commit-msg hook: WI-[type] 커밋 메시지 형식 강제 검증
+# .git/hooks/commit-msg 에 설치됨
 
-export LANG=en_US.UTF-8
-export LC_ALL=en_US.UTF-8
+set -euo pipefail
 
-MSG=$(cat "$1")
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(head -1 "$COMMIT_MSG_FILE")
 
-# WI-[type] 형식 검증
-if ! echo "$MSG" | grep -qP '^WI-(feat|fix|docs|style|refactor|test|chore|perf|ci|revert) '; then
-  echo "❌ 커밋 메시지 형식 오류"
+# WI-NNN-[type] 패턴 검증 (번호 없는 WI-chore도 허용: 시스템 커밋)
+PATTERN="^WI-[0-9]{3,4}-(feat|fix|docs|style|refactor|test|chore|perf|ci|revert) .+"
+PATTERN_SYSTEM="^WI-(chore|docs) .+"
+
+if [[ ! "$COMMIT_MSG" =~ $PATTERN && ! "$COMMIT_MSG" =~ $PATTERN_SYSTEM ]]; then
   echo ""
-  echo "올바른 형식: WI-[type] 한글 작업명"
-  echo "허용 타입: feat, fix, docs, style, refactor, test, chore, perf, ci, revert"
+  echo "  커밋 메시지 형식 오류"
   echo ""
-  echo "예시:"
-  echo "  WI-feat 사용자 인증 추가"
-  echo "  WI-fix 로그인 토큰 만료 처리"
+  echo "  현재: $COMMIT_MSG"
+  echo "  형식: WI-NNN-[type] 한글 작업명  (NNN = 3자리 순번)"
+  echo "  타입: feat, fix, docs, style, refactor, test, chore, perf, ci, revert"
   echo ""
-  echo "입력한 메시지: $MSG"
+  echo "  예시: WI-001-feat 사용자 인증 추가"
+  echo "        WI-015-fix 로그인 토큰 만료 처리"
+  echo "  시스템: WI-chore/WI-docs (번호 없이 허용 — 환경 셋업, PRD 문서 등)"
+  echo ""
   exit 1
 fi
