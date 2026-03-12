@@ -7,10 +7,123 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Enums ────────────────────────────────────────────────
+
+enum TenantPlan {
+  TRIAL
+  STARTER
+  GROWTH
+  ENTERPRISE
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  DISABLED
+  PENDING
+}
+
+// ─── Tenant ───────────────────────────────────────────────
+
 model Tenant {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   name      String
-  slug      String   @unique
+  slug      String       @unique
+  plan      TenantPlan   @default(TRIAL)
+  status    TenantStatus @default(ACTIVE)
+  settings  Json         @default("{}")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  users User[]
+  roles Role[]
+}
+
+// ─── Role ─────────────────────────────────────────────────
+
+model Role {
+  id          String  @id @default(cuid())
+  tenantId    String?
+  name        String
+  description String?
+  permissions Json    @default("[]")
+  isSystem    Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users  User[]
+
+  @@unique([tenantId, name])
+}
+
+// ─── User (NextAuth compatible) ───────────────────────────
+
+model User {
+  id            String     @id @default(cuid())
+  tenantId      String?
+  roleId        String?
+  email         String     @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  password      String?
+  status        UserStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role     Role?     @relation(fields: [roleId], references: [id])
+  accounts Account[]
+  sessions Session[]
+}
+
+// ─── Account (NextAuth compatible) ────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// ─── Session (NextAuth compatible) ────────────────────────
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── VerificationToken (NextAuth compatible) ──────────────
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
