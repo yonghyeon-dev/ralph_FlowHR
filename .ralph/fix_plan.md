@@ -19,7 +19,7 @@
 
 ### L1: Auth > L2: 인증 플로우 > L3: 로그인 + SSO + RBAC
 - [x] WI-006-feat 로그인 페이지 + NextAuth 설정 (Credentials, Google, Microsoft, 데모 퀵 액세스) | L1:Auth > L2:인증플로우 > L3:로그인
-- [ ] WI-007-feat RBAC 미들웨어 (역할 기반 라우트 가드) | L1:Auth > L2:인증플로우 > L3:RBAC
+- [x] WI-007-feat RBAC 미들웨어 (역할 기반 라우트 가드) | L1:Auth > L2:인증플로우 > L3:RBAC
 
 ## Phase 3: People (인사관리)
 
