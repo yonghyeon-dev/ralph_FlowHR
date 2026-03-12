@@ -15,7 +15,7 @@
 ## Phase 2: Auth & Multi-tenant (인증)
 
 ### L1: Auth > L2: DB 스키마 > L3: 멀티테넌트 인증 모델
-- [ ] WI-005-feat Auth DB 스키마 (Tenant, User, Role, Session + 시드 데이터) | L1:Auth > L2:DB > L3:인증모델
+- [x] WI-005-feat Auth DB 스키마 (Tenant, User, Role, Session + 시드 데이터) | L1:Auth > L2:DB > L3:인증모델
 
 ### L1: Auth > L2: 인증 플로우 > L3: 로그인 + SSO + RBAC
 - [ ] WI-006-feat 로그인 페이지 + NextAuth 설정 (Credentials, Google, Microsoft, 데모 퀵 액세스) | L1:Auth > L2:인증플로우 > L3:로그인
