@@ -407,12 +407,13 @@ setup_worktree() {
 
 mark_wi_done() {
   # fix_plan.md에서 특정 WI 이름을 포함하는 첫 번째 미완료 항목을 완료 처리
+  # 정규식 이스케이프 문제를 우회하기 위해 grep -nF (고정 문자열) + sed 라인번호 방식 사용
   local wi_name="$1"
-  # WI 이름에서 특수문자 이스케이프 (sed용)
-  local escaped
-  escaped=$(printf '%s\n' "$wi_name" | sed 's/[[\.*^$()+?{|\\]/\\&/g')
-  # 첫 번째 매칭만 변환: - [ ] → - [x]
-  sed -i "0,/^\- \[ \].*${escaped}/{s/^\- \[ \]/- [x]/}" "$FIX_PLAN" 2>/dev/null
+  local line_num
+  line_num=$(grep -nF "- [ ] ${wi_name}" "$FIX_PLAN" 2>/dev/null | head -1 | cut -d: -f1)
+  if [[ -n "$line_num" ]]; then
+    sed -i "${line_num}s/^\- \[ \]/- [x]/" "$FIX_PLAN" 2>/dev/null
+  fi
 }
 
 execute_parallel() {
