@@ -199,8 +199,8 @@ function SettingsContent() {
           <PermissionsMatrix />
         </div>
       )}
-      {activeTab === "notifications" && <PlaceholderTab label="알림 설정" />}
-      {activeTab === "integrations" && <PlaceholderTab label="연동 관리" />}
+      {activeTab === "notifications" && <NotificationsTab />}
+      {activeTab === "integrations" && <IntegrationsTab />}
       {activeTab === "audit" && <PlaceholderTab label="감사 로그" />}
     </div>
   );
@@ -851,6 +851,290 @@ function PermissionsMatrix() {
         </p>
       </CardBody>
     </Card>
+  );
+}
+
+// ─── Notifications Tab (WI-057) ──────────────────────────────
+
+interface NotificationRule {
+  id: string;
+  event: string;
+  channels: string[];
+  recipients: string;
+  enabled: boolean;
+}
+
+const INITIAL_NOTIFICATION_RULES: NotificationRule[] = [
+  {
+    id: "nr-1",
+    event: "휴가 신청",
+    channels: ["이메일", "Slack"],
+    recipients: "직속 팀장",
+    enabled: true,
+  },
+  {
+    id: "nr-2",
+    event: "초과근무 상한 도달",
+    channels: ["이메일", "Slack", "SMS"],
+    recipients: "팀장 + HR 담당",
+    enabled: true,
+  },
+  {
+    id: "nr-3",
+    event: "체크아웃 누락",
+    channels: ["Slack"],
+    recipients: "본인 + 팀장",
+    enabled: true,
+  },
+  {
+    id: "nr-4",
+    event: "급여 명세서 발행",
+    channels: ["이메일"],
+    recipients: "본인",
+    enabled: true,
+  },
+  {
+    id: "nr-5",
+    event: "문서 서명 요청",
+    channels: ["이메일", "Slack"],
+    recipients: "수신자",
+    enabled: true,
+  },
+  {
+    id: "nr-6",
+    event: "계약 만료 알림",
+    channels: ["이메일"],
+    recipients: "HR 담당 + 부서장",
+    enabled: false,
+  },
+];
+
+function getChannelBadgeVariant(
+  channel: string,
+): "info" | "danger" | "neutral" {
+  if (channel === "SMS") return "danger";
+  return "info";
+}
+
+function NotificationsTab() {
+  const [rules, setRules] = useState<NotificationRule[]>(
+    INITIAL_NOTIFICATION_RULES,
+  );
+
+  function handleToggle(id: string) {
+    setRules((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)),
+    );
+  }
+
+  const columns: Column<NotificationRule>[] = [
+    {
+      key: "event",
+      header: "이벤트",
+      render: (row) => (
+        <span className="font-medium text-text-primary">{row.event}</span>
+      ),
+    },
+    {
+      key: "channels",
+      header: "채널",
+      render: (row) => (
+        <div className="flex flex-wrap gap-sp-1">
+          {row.channels.map((ch) => (
+            <Badge key={ch} variant={getChannelBadgeVariant(ch)}>
+              {ch}
+            </Badge>
+          ))}
+        </div>
+      ),
+    },
+    {
+      key: "recipients",
+      header: "수신자",
+      render: (row) => (
+        <span className="text-text-secondary">{row.recipients}</span>
+      ),
+    },
+    {
+      key: "enabled",
+      header: "상태",
+      align: "center",
+      width: "80px",
+      render: (row) => (
+        <button
+          onClick={() => handleToggle(row.id)}
+          className={[
+            "relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-fast",
+            row.enabled ? "bg-brand" : "bg-border",
+          ].join(" ")}
+          aria-label={row.enabled ? "알림 끄기" : "알림 켜기"}
+        >
+          <span
+            className={[
+              "inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform duration-fast shadow-sm",
+              row.enabled ? "translate-x-[18px]" : "translate-x-[3px]",
+            ].join(" ")}
+          />
+        </button>
+      ),
+    },
+    {
+      key: "actions",
+      header: "액션",
+      align: "center",
+      width: "80px",
+      render: () => (
+        <Button variant="ghost" size="sm">
+          편집
+        </Button>
+      ),
+    },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="text-md font-semibold text-text-primary">알림 규칙</h2>
+        <Button size="sm">규칙 추가</Button>
+      </CardHeader>
+      <CardBody>
+        <DataTable<NotificationRule>
+          columns={columns}
+          data={rules}
+          keyExtractor={(r) => r.id}
+          emptyMessage="등록된 알림 규칙이 없습니다"
+        />
+      </CardBody>
+    </Card>
+  );
+}
+
+// ─── Integrations Tab (WI-057) ───────────────────────────────
+
+interface IntegrationService {
+  id: string;
+  name: string;
+  description: string;
+  initial: string;
+  bgColor: string;
+  connected: boolean;
+  detail: { label: string; value: string }[];
+}
+
+const INTEGRATION_SERVICES: IntegrationService[] = [
+  {
+    id: "slack",
+    name: "Slack",
+    description: "메시지 알림 연동",
+    initial: "S",
+    bgColor: "#4A154B",
+    connected: true,
+    detail: [
+      { label: "상태", value: "연결됨" },
+      { label: "워크스페이스", value: "flowcommerce" },
+      { label: "마지막 동기화", value: "2분 전" },
+    ],
+  },
+  {
+    id: "google",
+    name: "Google Workspace",
+    description: "SSO 및 캘린더 연동",
+    initial: "G",
+    bgColor: "#0078D4",
+    connected: true,
+    detail: [
+      { label: "상태", value: "연결됨" },
+      { label: "도메인", value: "flowcommerce.kr" },
+      { label: "마지막 동기화", value: "15분 전" },
+    ],
+  },
+  {
+    id: "jira",
+    name: "Jira",
+    description: "프로젝트/이슈 연동",
+    initial: "J",
+    bgColor: "#333333",
+    connected: false,
+    detail: [
+      { label: "상태", value: "설정 필요" },
+      { label: "도메인", value: "\u2014" },
+      { label: "마지막 동기화", value: "\u2014" },
+    ],
+  },
+];
+
+function IntegrationsTab() {
+  return (
+    <div className="space-y-sp-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-md font-semibold text-text-primary">연동 관리</h2>
+      </div>
+      <div className="grid grid-cols-1 gap-sp-4 md:grid-cols-2 lg:grid-cols-3">
+        {INTEGRATION_SERVICES.map((svc) => (
+          <Card key={svc.id}>
+            <CardBody>
+              <div className="p-sp-1">
+                {/* 서비스 헤더 */}
+                <div className="flex items-center gap-sp-3 mb-sp-4">
+                  <div
+                    className="flex items-center justify-center rounded-md text-white font-bold text-lg"
+                    style={{
+                      width: 40,
+                      height: 40,
+                      backgroundColor: svc.bgColor,
+                    }}
+                  >
+                    {svc.initial}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-text-primary">
+                      {svc.name}
+                    </div>
+                    <div className="text-sm text-text-tertiary">
+                      {svc.description}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 상세 정보 */}
+                <div className="space-y-sp-2">
+                  {svc.detail.map((d) => (
+                    <div
+                      key={d.label}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <span className="text-text-tertiary">{d.label}</span>
+                      <span className="text-text-primary">
+                        {d.label === "상태" ? (
+                          <Badge
+                            variant={svc.connected ? "success" : "warning"}
+                          >
+                            {d.value}
+                          </Badge>
+                        ) : (
+                          d.value
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 액션 버튼 */}
+                <div className="mt-sp-4">
+                  <Button
+                    variant={svc.connected ? "secondary" : "primary"}
+                    size="sm"
+                    className="w-full"
+                  >
+                    {svc.connected ? "설정" : "연결하기"}
+                  </Button>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+        ))}
+      </div>
+    </div>
   );
 }
 
