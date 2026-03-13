@@ -47,7 +47,7 @@
 ## Phase 5: Leave (휴가관리)
 
 ### L1: Leave > L2: DB 스키마 > L3: 휴가 데이터 모델
-- [ ] WI-019-feat Leave DB 스키마 (LeavePolicy, LeaveBalance, LeaveRequest + 5유형 시드) | L1:Leave > L2:DB > L3:휴가모델
+- [x] WI-019-feat Leave DB 스키마 (LeavePolicy, LeaveBalance, LeaveRequest + 5유형 시드) | L1:Leave > L2:DB > L3:휴가모델
 
 ### L1: Leave > L2: 대시보드 + 캘린더 + 정책 + 신청큐
 - [ ] WI-020-feat 휴가 대시보드 (4 KPI) | L1:Leave > L2:대시보드 > L3:KPI
