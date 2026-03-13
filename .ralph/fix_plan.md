@@ -125,13 +125,13 @@
 - [x] WI-054-feat 회사 정보 설정 (2컬럼 폼) | L1:Settings > L2:회사 > L3:기본설정 | batch:17
 - [x] WI-055-feat 역할 관리 (6역할 테이블, CRUD) | L1:Settings > L2:역할 > L3:관리 | batch:18
 - [x] WI-056-feat 권한 매트릭스 (6기능×6역할, 셀 클릭 변경) | L1:Settings > L2:권한 > L3:매트릭스 | batch:19
-- [ ] WI-057-feat 알림 규칙 + 외부 연동 (6이벤트 토글, Slack/Google/Jira 카드) | L1:Settings > L2:알림연동 > L3:규칙 | batch:20
-- [ ] WI-058-feat 감사 로그 (테이블, 검색, 내보내기) | L1:Settings > L2:감사 > L3:로그 | batch:21
+- [x] WI-057-feat 알림 규칙 + 외부 연동 (6이벤트 토글, Slack/Google/Jira 카드) | L1:Settings > L2:알림연동 > L3:규칙 | batch:20
+- [x] WI-058-feat 감사 로그 (테이블, 검색, 내보내기) | L1:Settings > L2:감사 > L3:로그 | batch:21
 
 ## Phase 13: Admin Dashboard (관리자 홈)
 
 ### L1: Admin Home > L2: 대시보드
-- [x] WI-059-feat Admin 대시보드 (5 KPI, 오늘큐, 조직스냅샷, 결재퍼널, 예외모니터, 문서상태, 급여상태) | L1:AdminHome > L2:대시보드 > L3:홈 | batch:19
+- [ ] WI-059-feat Admin 대시보드 (5 KPI, 오늘큐, 조직스냅샷, 결재퍼널, 예외모니터, 문서상태, 급여상태) | L1:AdminHome > L2:대시보드 > L3:홈 | batch:19
 
 ## Phase 14: Employee Portal (직원 포탈)
 
