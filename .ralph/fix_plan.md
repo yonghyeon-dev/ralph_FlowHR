@@ -52,7 +52,7 @@
 ### L1: Leave > L2: 대시보드 + 캘린더 + 정책 + 신청큐
 - [x] WI-020-feat 휴가 대시보드 (4 KPI) | L1:Leave > L2:대시보드 > L3:KPI | batch:01
 - [x] WI-021-feat 휴가 캘린더 (월간, 하이라이팅, 부재자 목록) | L1:Leave > L2:캘린더 > L3:월간 | batch:02
-- [ ] WI-022-feat 휴가 정책 관리 (5유형 테이블, CRUD) | L1:Leave > L2:정책 > L3:관리 | batch:03
+- [x] WI-022-feat 휴가 정책 관리 (5유형 테이블, CRUD) | L1:Leave > L2:정책 > L3:관리 | batch:03
 - [ ] WI-023-feat 휴가 신청 큐 (승인/반려 처리) | L1:Leave > L2:신청큐 > L3:처리 | batch:04
 
 ## Phase 6: Workflow (결재)
@@ -62,7 +62,7 @@
 
 ### L1: Workflow > L2: 대시보드 + 상세 + 빌더 + 이력
 - [x] WI-025-feat 결재 대시보드 (4 KPI, 수신함, 처리통계) | L1:Workflow > L2:대시보드 > L3:KPI | batch:02
-- [ ] WI-026-feat 결재 상세 드로어 (요청상세, 4단계 결재 체인, 액션) | L1:Workflow > L2:상세 > L3:드로어 | batch:03
+- [x] WI-026-feat 결재 상세 드로어 (요청상세, 4단계 결재 체인, 액션) | L1:Workflow > L2:상세 > L3:드로어 | batch:03
 - [ ] WI-027-feat 워크플로우 빌더 (5단계 비주얼, 조건분기, CRUD) | L1:Workflow > L2:빌더 > L3:비주얼 | batch:04
 - [ ] WI-028-feat 결재 이력 (테이블, 필터, 페이지네이션) | L1:Workflow > L2:이력 > L3:테이블 | batch:05
 
