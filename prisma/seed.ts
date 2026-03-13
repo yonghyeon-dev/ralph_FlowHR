@@ -16,6 +16,8 @@ import {
   WorkflowStatus,
   ApprovalRequestStatus,
   RequestPriority,
+  DocumentTemplateCategory,
+  DocumentStatus,
 } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -1185,8 +1187,248 @@ async function main(): Promise<void> {
     }
   }
 
+  // ─── Document Templates (Acme, 4 templates) ──────────────
+
+  const templateDefs = [
+    {
+      name: "근로계약서",
+      description: "표준 근로계약서 양식 (정규직/계약직)",
+      category: DocumentTemplateCategory.CONTRACT,
+      content: {
+        sections: [
+          { title: "계약 당사자", fields: ["회사명", "근로자명", "주민등록번호"] },
+          { title: "근로 조건", fields: ["근무지", "업무내용", "근로시간", "휴일"] },
+          { title: "임금", fields: ["기본급", "수당", "지급일"] },
+          { title: "계약 기간", fields: ["시작일", "종료일"] },
+          { title: "서명", fields: ["사용자서명", "근로자서명", "날짜"] },
+        ],
+      },
+      version: "3.2",
+      usageCount: 128,
+    },
+    {
+      name: "연봉 변경 통지서",
+      description: "연봉 조정 및 변경 통지 양식",
+      category: DocumentTemplateCategory.NOTICE,
+      content: {
+        sections: [
+          { title: "수신자 정보", fields: ["성명", "사번", "부서", "직급"] },
+          { title: "변경 내용", fields: ["현재 연봉", "변경 연봉", "변경 사유", "적용일"] },
+          { title: "서명", fields: ["인사담당자서명", "근로자서명", "날짜"] },
+        ],
+      },
+      version: "2.1",
+      usageCount: 45,
+    },
+    {
+      name: "비밀유지계약서 (NDA)",
+      description: "기밀 정보 비밀유지 서약서",
+      category: DocumentTemplateCategory.NDA,
+      content: {
+        sections: [
+          { title: "계약 당사자", fields: ["공개자", "수신자"] },
+          { title: "기밀 정보 범위", fields: ["기밀정보정의", "예외사항"] },
+          { title: "의무 사항", fields: ["비밀유지의무", "사용제한", "반환의무"] },
+          { title: "계약 기간", fields: ["유효기간", "존속조항"] },
+          { title: "서명", fields: ["공개자서명", "수신자서명", "날짜"] },
+        ],
+      },
+      version: "1.4",
+      usageCount: 312,
+    },
+    {
+      name: "퇴사 확인서",
+      description: "퇴직 사실 확인 및 증명서",
+      category: DocumentTemplateCategory.CERTIFICATE,
+      content: {
+        sections: [
+          { title: "인적 사항", fields: ["성명", "사번", "부서", "직급"] },
+          { title: "재직 정보", fields: ["입사일", "퇴사일", "퇴사사유"] },
+          { title: "확인 사항", fields: ["업무인수인계", "장비반납", "보안서약"] },
+          { title: "서명", fields: ["인사담당자서명", "퇴직자서명", "날짜"] },
+        ],
+      },
+      version: "1.1",
+      usageCount: 67,
+    },
+  ];
+
+  const templateIds: Record<string, string> = {};
+  for (const def of templateDefs) {
+    const template = await prisma.documentTemplate.upsert({
+      where: { tenantId_name: { tenantId: acme.id, name: def.name } },
+      update: {},
+      create: {
+        tenantId: acme.id,
+        name: def.name,
+        description: def.description,
+        category: def.category,
+        content: def.content,
+        version: def.version,
+        usageCount: def.usageCount,
+      },
+    });
+    templateIds[def.name] = template.id;
+  }
+
+  // ─── Documents (Acme, sample documents) ───────────────────
+
+  const documentDefs: {
+    templateName: string;
+    senderNumber: string;
+    recipientNumber: string;
+    title: string;
+    status: DocumentStatus;
+    deadline: string | null;
+    sentAt: string | null;
+    viewedAt: string | null;
+    completedAt: string | null;
+    memo: string | null;
+  }[] = [
+    {
+      templateName: "근로계약서",
+      senderNumber: "EMP-20210301",
+      recipientNumber: "EMP-20240101",
+      title: "근로계약서 갱신 — 조기획",
+      status: DocumentStatus.SENT,
+      deadline: "2026-03-13",
+      sentAt: "2026-03-10",
+      viewedAt: null,
+      completedAt: null,
+      memo: "계약 갱신 요청",
+    },
+    {
+      templateName: "연봉 변경 통지서",
+      senderNumber: "EMP-20210301",
+      recipientNumber: "EMP-20220415",
+      title: "연봉 변경 통지서 — 최직원",
+      status: DocumentStatus.SENT,
+      deadline: "2026-03-15",
+      sentAt: "2026-03-11",
+      viewedAt: null,
+      completedAt: null,
+      memo: "승진에 따른 연봉 조정",
+    },
+    {
+      templateName: "비밀유지계약서 (NDA)",
+      senderNumber: "EMP-20210301",
+      recipientNumber: "EMP-20230201",
+      title: "NDA 갱신 — 한프론트",
+      status: DocumentStatus.SENT,
+      deadline: "2026-03-20",
+      sentAt: "2026-03-08",
+      viewedAt: "2026-03-09",
+      completedAt: null,
+      memo: "연간 NDA 갱신",
+    },
+    {
+      templateName: "근로계약서",
+      senderNumber: "EMP-20210301",
+      recipientNumber: "EMP-20210601",
+      title: "근로계약서 — 박팀장",
+      status: DocumentStatus.SIGNED,
+      deadline: "2026-03-01",
+      sentAt: "2026-02-20",
+      viewedAt: "2026-02-21",
+      completedAt: "2026-02-25",
+      memo: null,
+    },
+    {
+      templateName: "비밀유지계약서 (NDA)",
+      senderNumber: "EMP-20210301",
+      recipientNumber: "EMP-20220901",
+      title: "NDA — 정시니어",
+      status: DocumentStatus.SIGNED,
+      deadline: "2026-02-28",
+      sentAt: "2026-02-15",
+      viewedAt: "2026-02-16",
+      completedAt: "2026-02-20",
+      memo: null,
+    },
+    {
+      templateName: "퇴사 확인서",
+      senderNumber: "EMP-20210301",
+      recipientNumber: "EMP-20240601",
+      title: "퇴사 확인서 — 강퇴사",
+      status: DocumentStatus.DRAFT,
+      deadline: null,
+      sentAt: null,
+      viewedAt: null,
+      completedAt: null,
+      memo: "퇴사 처리 예정",
+    },
+    {
+      templateName: "연봉 변경 통지서",
+      senderNumber: "EMP-20210301",
+      recipientNumber: "EMP-20210601",
+      title: "연봉 변경 통지서 — 박팀장",
+      status: DocumentStatus.SIGNED,
+      deadline: "2026-01-31",
+      sentAt: "2026-01-15",
+      viewedAt: "2026-01-16",
+      completedAt: "2026-01-20",
+      memo: null,
+    },
+    {
+      templateName: "근로계약서",
+      senderNumber: "EMP-20210301",
+      recipientNumber: "EMP-20230601",
+      title: "근로계약서 — 윤영업",
+      status: DocumentStatus.EXPIRED,
+      deadline: "2026-02-10",
+      sentAt: "2026-01-25",
+      viewedAt: null,
+      completedAt: null,
+      memo: "기한 만료",
+    },
+  ];
+
+  const documentRecords: { id: string; recipientNumber: string }[] = [];
+  for (const def of documentDefs) {
+    const templateId = templateIds[def.templateName];
+    const senderId = employeeIds[def.senderNumber];
+    const recipientId = employeeIds[def.recipientNumber];
+
+    const doc = await prisma.document.create({
+      data: {
+        tenantId: acme.id,
+        templateId,
+        senderId,
+        recipientId,
+        title: def.title,
+        status: def.status,
+        deadline: def.deadline ? new Date(def.deadline) : undefined,
+        sentAt: def.sentAt ? new Date(def.sentAt) : undefined,
+        viewedAt: def.viewedAt ? new Date(def.viewedAt) : undefined,
+        completedAt: def.completedAt ? new Date(def.completedAt) : undefined,
+        memo: def.memo,
+      },
+    });
+    documentRecords.push({ id: doc.id, recipientNumber: def.recipientNumber });
+  }
+
+  // ─── Signatures (for signed documents) ──────────────────────
+
+  const signedDocs = documentDefs
+    .map((def, idx) => ({ ...def, docId: documentRecords[idx].id }))
+    .filter((d) => d.status === DocumentStatus.SIGNED);
+
+  for (const sd of signedDocs) {
+    const signerId = employeeIds[sd.recipientNumber];
+    await prisma.signature.create({
+      data: {
+        tenantId: acme.id,
+        documentId: sd.docId,
+        signerId,
+        signatureData: `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==`,
+        ipAddress: "192.168.1.100",
+        signedAt: sd.completedAt ? new Date(sd.completedAt) : new Date(),
+      },
+    });
+  }
+
   console.log(
-    "Seed completed: 2 tenants, 9 roles, 7 users, 9 departments, 9 positions, 10 employees, 11 changes, 5 shifts, 8 assignments, 40 attendance records, 4 exceptions, 2 closings, 5 leave policies, 10 leave balances, 6 leave requests, 3 workflows, 10 approval requests",
+    "Seed completed: 2 tenants, 9 roles, 7 users, 9 departments, 9 positions, 10 employees, 11 changes, 5 shifts, 8 assignments, 40 attendance records, 4 exceptions, 2 closings, 5 leave policies, 10 leave balances, 6 leave requests, 3 workflows, 10 approval requests, 4 document templates, 8 documents, 3 signatures",
   );
 }
 

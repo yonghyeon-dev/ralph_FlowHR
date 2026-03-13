@@ -117,6 +117,22 @@ enum ApprovalRequestStatus {
   ESCALATED
 }
 
+enum DocumentStatus {
+  DRAFT
+  SENT
+  VIEWED
+  SIGNED
+  EXPIRED
+  CANCELLED
+}
+
+enum DocumentTemplateCategory {
+  CONTRACT
+  NOTICE
+  NDA
+  CERTIFICATE
+}
+
 enum RequestPriority {
   CRITICAL
   HIGH
@@ -153,6 +169,9 @@ model Tenant {
   workflows            Workflow[]
   approvalRequests     ApprovalRequest[]
   approvalSteps        ApprovalStep[]
+  documentTemplates    DocumentTemplate[]
+  documents            Document[]
+  signatures           Signature[]
 }
 
 // ─── Role ─────────────────────────────────────────────────
@@ -321,6 +340,9 @@ model Employee {
   leaveRequests        LeaveRequest[]
   approvalRequests       ApprovalRequest[] @relation("ApprovalRequester")
   approvalStepsAssigned  ApprovalStep[]    @relation("ApprovalStepApprover")
+  sentDocuments          Document[]        @relation("DocumentSender")
+  receivedDocuments      Document[]        @relation("DocumentRecipient")
+  signatures             Signature[]
 
   @@unique([tenantId, employeeNumber])
 }
@@ -588,4 +610,74 @@ model ApprovalStep {
   tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   request  ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   approver Employee        @relation("ApprovalStepApprover", fields: [approverId], references: [id], onDelete: Cascade)
+}
+
+// ─── DocumentTemplate ───────────────────────────────────
+
+model DocumentTemplate {
+  id          String                   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  category    DocumentTemplateCategory
+  content     Json                     @default("{}")
+  version     String                   @default("1.0")
+  usageCount  Int                      @default(0)
+  isActive    Boolean                  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documents Document[]
+
+  @@unique([tenantId, name])
+}
+
+// ─── Document ───────────────────────────────────────────
+
+model Document {
+  id          String         @id @default(cuid())
+  tenantId    String
+  templateId  String
+  senderId    String
+  recipientId String
+  title       String
+  status      DocumentStatus @default(DRAFT)
+  deadline    DateTime?
+  sentAt      DateTime?
+  viewedAt    DateTime?
+  completedAt DateTime?
+  memo        String?
+  notifyEmail Boolean        @default(true)
+  notifyReminder Boolean     @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template  DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  sender    Employee         @relation("DocumentSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient Employee         @relation("DocumentRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  signatures Signature[]
+}
+
+// ─── Signature ──────────────────────────────────────────
+
+model Signature {
+  id            String  @id @default(cuid())
+  tenantId      String
+  documentId    String
+  signerId      String
+  signatureData String  @db.Text
+  ipAddress     String?
+  signedAt      DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  signer   Employee @relation(fields: [signerId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, signerId])
 }
