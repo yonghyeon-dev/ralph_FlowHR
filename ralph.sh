@@ -717,8 +717,8 @@ main() {
 
       check_rate_limit
 
-      execute_parallel
-      local result=$?
+      local result=0
+      execute_parallel || result=$?
 
       validate_post_iteration || {
         log "Post-validation failed - check guardrails.md"
@@ -750,8 +750,8 @@ main() {
       local context
       context=$(build_context)
 
-      execute_claude "$context"
-      local result=$?
+      local result=0
+      execute_claude "$context" || result=$?
 
       validate_post_iteration || {
         log "Post-validation failed - check guardrails.md"
