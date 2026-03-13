@@ -26,6 +26,9 @@ import {
   EvalCycleType,
   EvaluationStatus,
   OneOnOneStatus,
+  JobPostingStatus,
+  ApplicationStatus,
+  BoardingTaskStatus,
 } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -2002,8 +2005,452 @@ async function main(): Promise<void> {
     });
   }
 
+  // ─── Job Postings (Acme) ──────────────────────────────────
+
+  const jobPostingDefs: {
+    title: string;
+    departmentCode: string;
+    hiringManagerNumber: string;
+    status: JobPostingStatus;
+    description: string;
+    requirements: string;
+    location: string;
+    employmentType: EmploymentType;
+    headcount: number;
+    openDate: string | null;
+    closeDate: string | null;
+  }[] = [
+    {
+      title: "시니어 백엔드 개발자",
+      departmentCode: "DEV",
+      hiringManagerNumber: "EMP-20200101",
+      status: JobPostingStatus.OPEN,
+      description: "대규모 트래픽을 처리하는 백엔드 시스템 설계 및 개발",
+      requirements: "Node.js/TypeScript 5년+, PostgreSQL, AWS 경험",
+      location: "서울 강남구",
+      employmentType: EmploymentType.FULL_TIME,
+      headcount: 2,
+      openDate: "2026-02-15",
+      closeDate: "2026-04-15",
+    },
+    {
+      title: "프론트엔드 개발자",
+      departmentCode: "DEV",
+      hiringManagerNumber: "EMP-20210601",
+      status: JobPostingStatus.OPEN,
+      description: "React/Next.js 기반 HR SaaS 프론트엔드 개발",
+      requirements: "React 3년+, TypeScript, 디자인 시스템 경험 우대",
+      location: "서울 강남구",
+      employmentType: EmploymentType.FULL_TIME,
+      headcount: 1,
+      openDate: "2026-03-01",
+      closeDate: "2026-04-30",
+    },
+    {
+      title: "데이터 분석 인턴",
+      departmentCode: "DEV",
+      hiringManagerNumber: "EMP-20200101",
+      status: JobPostingStatus.OPEN,
+      description: "HR 데이터 분석 및 인사이트 도출, 대시보드 구축 지원",
+      requirements: "Python, SQL 기본 역량, 통계학/데이터 분석 전공 우대",
+      location: "서울 강남구",
+      employmentType: EmploymentType.INTERN,
+      headcount: 1,
+      openDate: "2026-03-10",
+      closeDate: "2026-05-31",
+    },
+    {
+      title: "HR 매니저",
+      departmentCode: "HR",
+      hiringManagerNumber: "EMP-20210301",
+      status: JobPostingStatus.CLOSED,
+      description: "인사 운영 총괄 및 채용/교육/평가 프로세스 관리",
+      requirements: "HR 경력 7년+, 노무 관련 자격증 보유자 우대",
+      location: "서울 강남구",
+      employmentType: EmploymentType.FULL_TIME,
+      headcount: 1,
+      openDate: "2026-01-10",
+      closeDate: "2026-02-28",
+    },
+    {
+      title: "영업 담당자",
+      departmentCode: "SALES",
+      hiringManagerNumber: "EMP-20200101",
+      status: JobPostingStatus.DRAFT,
+      description: "B2B SaaS 신규 고객 발굴 및 기존 고객 관리",
+      requirements: "B2B 영업 3년+, SaaS 도메인 경험 우대",
+      location: "서울 강남구",
+      employmentType: EmploymentType.FULL_TIME,
+      headcount: 2,
+      openDate: null,
+      closeDate: null,
+    },
+  ];
+
+  const jobPostingIds: Record<string, string> = {};
+  for (const def of jobPostingDefs) {
+    const hiringManagerId = employeeIds[def.hiringManagerNumber];
+    const jp = await prisma.jobPosting.upsert({
+      where: { tenantId_title: { tenantId: acme.id, title: def.title } },
+      update: {},
+      create: {
+        tenantId: acme.id,
+        title: def.title,
+        hiringManagerId,
+        status: def.status,
+        description: def.description,
+        requirements: def.requirements,
+        location: def.location,
+        employmentType: def.employmentType,
+        headcount: def.headcount,
+        openDate: def.openDate ? new Date(def.openDate) : undefined,
+        closeDate: def.closeDate ? new Date(def.closeDate) : undefined,
+      },
+    });
+    jobPostingIds[def.title] = jp.id;
+  }
+
+  // ─── Applications (Acme) ──────────────────────────────────
+
+  const applicationDefs: {
+    jobTitle: string;
+    candidateName: string;
+    candidateEmail: string;
+    candidatePhone: string;
+    status: ApplicationStatus;
+    stage: number;
+    rating: number | null;
+    notes: string | null;
+    appliedAt: string;
+    hiredAt: string | null;
+    rejectedAt: string | null;
+    assigneeNumber: string;
+  }[] = [
+    {
+      jobTitle: "시니어 백엔드 개발자",
+      candidateName: "김서버",
+      candidateEmail: "kim.server@example.com",
+      candidatePhone: "010-1111-2222",
+      status: ApplicationStatus.SECOND_INTERVIEW,
+      stage: 3,
+      rating: 4,
+      notes: "시스템 설계 역량 우수, 2차 기술 면접 예정",
+      appliedAt: "2026-02-20",
+      hiredAt: null,
+      rejectedAt: null,
+      assigneeNumber: "EMP-20200101",
+    },
+    {
+      jobTitle: "시니어 백엔드 개발자",
+      candidateName: "이클라우드",
+      candidateEmail: "lee.cloud@example.com",
+      candidatePhone: "010-3333-4444",
+      status: ApplicationStatus.FIRST_INTERVIEW,
+      stage: 2,
+      rating: 3,
+      notes: "AWS 경험 풍부, 1차 면접 통과",
+      appliedAt: "2026-02-25",
+      hiredAt: null,
+      rejectedAt: null,
+      assigneeNumber: "EMP-20200101",
+    },
+    {
+      jobTitle: "시니어 백엔드 개발자",
+      candidateName: "박노드",
+      candidateEmail: "park.node@example.com",
+      candidatePhone: "010-5555-6666",
+      status: ApplicationStatus.SCREENING,
+      stage: 1,
+      rating: null,
+      notes: null,
+      appliedAt: "2026-03-05",
+      hiredAt: null,
+      rejectedAt: null,
+      assigneeNumber: "EMP-20200101",
+    },
+    {
+      jobTitle: "시니어 백엔드 개발자",
+      candidateName: "정데이터",
+      candidateEmail: "jung.data@example.com",
+      candidatePhone: "010-7777-8888",
+      status: ApplicationStatus.REJECTED,
+      stage: 2,
+      rating: 2,
+      notes: "기술 역량 부족",
+      appliedAt: "2026-02-18",
+      hiredAt: null,
+      rejectedAt: "2026-03-01",
+      assigneeNumber: "EMP-20200101",
+    },
+    {
+      jobTitle: "프론트엔드 개발자",
+      candidateName: "최리액트",
+      candidateEmail: "choi.react@example.com",
+      candidatePhone: "010-9999-0000",
+      status: ApplicationStatus.FINAL,
+      stage: 4,
+      rating: 5,
+      notes: "디자인 시스템 경험 우수, 최종 면접 통과 — 오퍼 준비 중",
+      appliedAt: "2026-03-03",
+      hiredAt: null,
+      rejectedAt: null,
+      assigneeNumber: "EMP-20210601",
+    },
+    {
+      jobTitle: "프론트엔드 개발자",
+      candidateName: "강타입",
+      candidateEmail: "kang.type@example.com",
+      candidatePhone: "010-1234-5678",
+      status: ApplicationStatus.FIRST_INTERVIEW,
+      stage: 2,
+      rating: 3,
+      notes: "TypeScript 역량 양호",
+      appliedAt: "2026-03-08",
+      hiredAt: null,
+      rejectedAt: null,
+      assigneeNumber: "EMP-20210601",
+    },
+    {
+      jobTitle: "데이터 분석 인턴",
+      candidateName: "윤파이썬",
+      candidateEmail: "yoon.python@example.com",
+      candidatePhone: "010-2345-6789",
+      status: ApplicationStatus.APPLIED,
+      stage: 1,
+      rating: null,
+      notes: null,
+      appliedAt: "2026-03-12",
+      hiredAt: null,
+      rejectedAt: null,
+      assigneeNumber: "EMP-20200101",
+    },
+    {
+      jobTitle: "HR 매니저",
+      candidateName: "송인사",
+      candidateEmail: "song.hr@example.com",
+      candidatePhone: "010-3456-7890",
+      status: ApplicationStatus.HIRED,
+      stage: 4,
+      rating: 5,
+      notes: "채용 확정, 4월 입사 예정",
+      appliedAt: "2026-01-15",
+      hiredAt: "2026-02-20",
+      rejectedAt: null,
+      assigneeNumber: "EMP-20210301",
+    },
+  ];
+
+  for (const def of applicationDefs) {
+    const jpId = jobPostingIds[def.jobTitle];
+    const assigneeId = employeeIds[def.assigneeNumber];
+
+    await prisma.application.create({
+      data: {
+        tenantId: acme.id,
+        jobPostingId: jpId,
+        candidateName: def.candidateName,
+        candidateEmail: def.candidateEmail,
+        candidatePhone: def.candidatePhone,
+        status: def.status,
+        stage: def.stage,
+        rating: def.rating,
+        notes: def.notes,
+        appliedAt: new Date(def.appliedAt),
+        hiredAt: def.hiredAt ? new Date(def.hiredAt) : undefined,
+        rejectedAt: def.rejectedAt ? new Date(def.rejectedAt) : undefined,
+        assigneeId: assigneeId,
+      },
+    });
+  }
+
+  // ─── Onboarding Tasks (Acme, for new hire EMP-20240101) ─────
+
+  const onboardingDefs: {
+    empNumber: string;
+    title: string;
+    description: string;
+    category: string;
+    status: BoardingTaskStatus;
+    dueDate: string;
+    completedAt: string | null;
+    sortOrder: number;
+  }[] = [
+    {
+      empNumber: "EMP-20240101",
+      title: "노트북 및 장비 지급",
+      description: "업무용 노트북, 모니터, 키보드/마우스 세팅",
+      category: "IT",
+      status: BoardingTaskStatus.COMPLETED,
+      dueDate: "2026-01-02",
+      completedAt: "2026-01-02",
+      sortOrder: 1,
+    },
+    {
+      empNumber: "EMP-20240101",
+      title: "계정 생성 (이메일, Slack, Jira)",
+      description: "사내 이메일, 협업 도구, 프로젝트 관리 도구 계정 발급",
+      category: "IT",
+      status: BoardingTaskStatus.COMPLETED,
+      dueDate: "2026-01-02",
+      completedAt: "2026-01-02",
+      sortOrder: 2,
+    },
+    {
+      empNumber: "EMP-20240101",
+      title: "근로계약서 서명",
+      description: "전자문서 시스템을 통한 근로계약서 서명",
+      category: "HR",
+      status: BoardingTaskStatus.COMPLETED,
+      dueDate: "2026-01-03",
+      completedAt: "2026-01-03",
+      sortOrder: 3,
+    },
+    {
+      empNumber: "EMP-20240101",
+      title: "사내 규정 교육",
+      description: "취업규칙, 보안 규정, 개인정보 처리방침 교육 이수",
+      category: "HR",
+      status: BoardingTaskStatus.COMPLETED,
+      dueDate: "2026-01-05",
+      completedAt: "2026-01-04",
+      sortOrder: 4,
+    },
+    {
+      empNumber: "EMP-20240101",
+      title: "사원증 발급",
+      description: "사원증 사진 촬영 및 출입카드 발급",
+      category: "ADMIN",
+      status: BoardingTaskStatus.COMPLETED,
+      dueDate: "2026-01-05",
+      completedAt: "2026-01-05",
+      sortOrder: 5,
+    },
+    {
+      empNumber: "EMP-20240101",
+      title: "팀 소개 및 멘토 배정",
+      description: "팀원 소개, 온보딩 멘토 배정, 첫 1:1 일정 수립",
+      category: "TEAM",
+      status: BoardingTaskStatus.COMPLETED,
+      dueDate: "2026-01-03",
+      completedAt: "2026-01-03",
+      sortOrder: 6,
+    },
+  ];
+
+  for (const def of onboardingDefs) {
+    const empId = employeeIds[def.empNumber];
+    if (!empId) continue;
+
+    await prisma.onboardingTask.create({
+      data: {
+        tenantId: acme.id,
+        employeeId: empId,
+        title: def.title,
+        description: def.description,
+        category: def.category,
+        status: def.status,
+        dueDate: new Date(def.dueDate),
+        completedAt: def.completedAt ? new Date(def.completedAt) : undefined,
+        sortOrder: def.sortOrder,
+      },
+    });
+  }
+
+  // ─── Offboarding Tasks (Acme, for resigned EMP-20240601) ────
+
+  const offboardingDefs: {
+    empNumber: string;
+    title: string;
+    description: string;
+    category: string;
+    status: BoardingTaskStatus;
+    dueDate: string;
+    completedAt: string | null;
+    sortOrder: number;
+  }[] = [
+    {
+      empNumber: "EMP-20240601",
+      title: "업무 인수인계",
+      description: "담당 업무 목록 정리 및 후임자 인수인계",
+      category: "TEAM",
+      status: BoardingTaskStatus.IN_PROGRESS,
+      dueDate: "2026-03-20",
+      completedAt: null,
+      sortOrder: 1,
+    },
+    {
+      empNumber: "EMP-20240601",
+      title: "장비 반납",
+      description: "노트북, 모니터, 사원증, 출입카드 반납",
+      category: "IT",
+      status: BoardingTaskStatus.PENDING,
+      dueDate: "2026-03-25",
+      completedAt: null,
+      sortOrder: 2,
+    },
+    {
+      empNumber: "EMP-20240601",
+      title: "계정 비활성화",
+      description: "이메일, Slack, Jira 등 사내 시스템 계정 비활성화",
+      category: "IT",
+      status: BoardingTaskStatus.PENDING,
+      dueDate: "2026-03-25",
+      completedAt: null,
+      sortOrder: 3,
+    },
+    {
+      empNumber: "EMP-20240601",
+      title: "퇴사 확인서 발급",
+      description: "퇴직 사실 확인서 및 경력증명서 발급",
+      category: "HR",
+      status: BoardingTaskStatus.PENDING,
+      dueDate: "2026-03-25",
+      completedAt: null,
+      sortOrder: 4,
+    },
+    {
+      empNumber: "EMP-20240601",
+      title: "최종 급여 정산",
+      description: "잔여 연차 수당, 퇴직금 산정 및 정산",
+      category: "FINANCE",
+      status: BoardingTaskStatus.PENDING,
+      dueDate: "2026-03-28",
+      completedAt: null,
+      sortOrder: 5,
+    },
+    {
+      empNumber: "EMP-20240601",
+      title: "비밀유지 서약서",
+      description: "퇴사 후 비밀유지 서약서 서명",
+      category: "LEGAL",
+      status: BoardingTaskStatus.PENDING,
+      dueDate: "2026-03-25",
+      completedAt: null,
+      sortOrder: 6,
+    },
+  ];
+
+  for (const def of offboardingDefs) {
+    const empId = employeeIds[def.empNumber];
+    if (!empId) continue;
+
+    await prisma.offboardingTask.create({
+      data: {
+        tenantId: acme.id,
+        employeeId: empId,
+        title: def.title,
+        description: def.description,
+        category: def.category,
+        status: def.status,
+        dueDate: new Date(def.dueDate),
+        completedAt: def.completedAt ? new Date(def.completedAt) : undefined,
+        sortOrder: def.sortOrder,
+      },
+    });
+  }
+
   console.log(
-    "Seed completed: 2 tenants, 9 roles, 7 users, 9 departments, 9 positions, 10 employees, 11 changes, 5 shifts, 8 assignments, 40 attendance records, 4 exceptions, 2 closings, 5 leave policies, 10 leave balances, 6 leave requests, 3 workflows, 10 approval requests, 4 document templates, 8 documents, 3 signatures, 6 payroll rules, 2 payroll runs, 13 payslips, 2 eval cycles, 10 goals, 7 evaluations, 8 one-on-ones",
+    "Seed completed: 2 tenants, 9 roles, 7 users, 9 departments, 9 positions, 10 employees, 11 changes, 5 shifts, 8 assignments, 40 attendance records, 4 exceptions, 2 closings, 5 leave policies, 10 leave balances, 6 leave requests, 3 workflows, 10 approval requests, 4 document templates, 8 documents, 3 signatures, 6 payroll rules, 2 payroll runs, 13 payslips, 2 eval cycles, 10 goals, 7 evaluations, 8 one-on-ones, 5 job postings, 8 applications, 6 onboarding tasks, 6 offboarding tasks",
   );
 }
 
