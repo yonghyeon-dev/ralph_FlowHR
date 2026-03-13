@@ -64,12 +64,12 @@
 - [x] WI-025-feat 결재 대시보드 (4 KPI, 수신함, 처리통계) | L1:Workflow > L2:대시보드 > L3:KPI | batch:02
 - [x] WI-026-feat 결재 상세 드로어 (요청상세, 4단계 결재 체인, 액션) | L1:Workflow > L2:상세 > L3:드로어 | batch:03
 - [x] WI-027-feat 워크플로우 빌더 (5단계 비주얼, 조건분기, CRUD) | L1:Workflow > L2:빌더 > L3:비주얼 | batch:04
-- [ ] WI-028-feat 결재 이력 (테이블, 필터, 페이지네이션) | L1:Workflow > L2:이력 > L3:테이블 | batch:05
+- [x] WI-028-feat 결재 이력 (테이블, 필터, 페이지네이션) | L1:Workflow > L2:이력 > L3:테이블 | batch:05
 
 ## Phase 7: Documents (문서)
 
 ### L1: Documents > L2: DB 스키마 > L3: 문서 데이터 모델
-- [ ] WI-029-feat Documents DB 스키마 (Template, Document, Signature + 4템플릿 시드) | L1:Documents > L2:DB > L3:문서모델 | batch:05
+- [x] WI-029-feat Documents DB 스키마 (Template, Document, Signature + 4템플릿 시드) | L1:Documents > L2:DB > L3:문서모델 | batch:05
 
 ### L1: Documents > L2: 대시보드 + 템플릿 + 발송 + 보관함
 - [ ] WI-030-feat 문서 대시보드 (4 KPI) | L1:Documents > L2:대시보드 > L3:KPI | batch:06
