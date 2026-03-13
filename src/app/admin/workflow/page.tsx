@@ -16,6 +16,7 @@ import {
 } from "@/components/ui";
 import type { QueuePriority } from "@/components/ui";
 import { ApprovalDetailDrawer } from "./ApprovalDetailDrawer";
+import { WorkflowBuilder } from "./WorkflowBuilder";
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -157,9 +158,7 @@ function WorkflowContent() {
       {activeTab === "detail" && (
         <DetailTab onSelectRequest={setSelectedRequestId} />
       )}
-      {activeTab === "builder" && (
-        <PlaceholderTab message="워크플로우 빌더 (WI-027)" />
-      )}
+      {activeTab === "builder" && <WorkflowBuilder />}
       {activeTab === "history" && (
         <PlaceholderTab message="결재 이력 (WI-028)" />
       )}
