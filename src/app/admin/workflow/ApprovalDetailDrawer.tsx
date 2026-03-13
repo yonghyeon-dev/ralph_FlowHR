@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Drawer } from "@/components/layout/Drawer";
 import { Badge, Button } from "@/components/ui";
 import type { BadgeVariant } from "@/components/ui";
@@ -45,6 +45,7 @@ interface ApprovalDetail {
 interface ApprovalDetailDrawerProps {
   requestId: string | null;
   onClose: () => void;
+  onActionComplete?: () => void;
 }
 
 // ─── Constants ──────────────────────────────────────────────
@@ -144,11 +145,12 @@ function isActionable(status: string): boolean {
 
 // ─── Component ──────────────────────────────────────────────
 
-export function ApprovalDetailDrawer({ requestId, onClose }: ApprovalDetailDrawerProps) {
+export function ApprovalDetailDrawer({ requestId, onClose, onActionComplete }: ApprovalDetailDrawerProps) {
   const [detail, setDetail] = useState<ApprovalDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchDetail = useCallback(() => {
     if (!requestId) {
       setDetail(null);
       return;
@@ -162,6 +164,28 @@ export function ApprovalDetailDrawer({ requestId, onClose }: ApprovalDetailDrawe
       })
       .finally(() => setLoading(false));
   }, [requestId]);
+
+  useEffect(() => {
+    fetchDetail();
+  }, [fetchDetail]);
+
+  async function handleAction(action: "approve" | "reject" | "hold") {
+    if (!requestId || actionLoading) return;
+    setActionLoading(action);
+    try {
+      const res = await fetch(`/api/workflow/requests/${requestId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (res.ok) {
+        fetchDetail();
+        onActionComplete?.();
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  }
 
   const statusInfo = detail ? STATUS_BADGE[detail.status] : null;
   const priorityInfo = detail ? PRIORITY_BADGE[detail.priority] : null;
@@ -177,9 +201,15 @@ export function ApprovalDetailDrawer({ requestId, onClose }: ApprovalDetailDrawe
       footer={
         actionable ? (
           <div className="flex gap-sp-2">
-            <Button variant="primary" size="sm">승인</Button>
-            <Button variant="danger" size="sm">반려</Button>
-            <Button variant="secondary" size="sm">보류</Button>
+            <Button variant="primary" size="sm" disabled={!!actionLoading} onClick={() => handleAction("approve")}>
+              {actionLoading === "approve" ? "처리 중..." : "승인"}
+            </Button>
+            <Button variant="danger" size="sm" disabled={!!actionLoading} onClick={() => handleAction("reject")}>
+              {actionLoading === "reject" ? "처리 중..." : "반려"}
+            </Button>
+            <Button variant="secondary" size="sm" disabled={!!actionLoading} onClick={() => handleAction("hold")}>
+              {actionLoading === "hold" ? "처리 중..." : "보류"}
+            </Button>
           </div>
         ) : undefined
       }

@@ -168,6 +168,7 @@ function WorkflowContent() {
       <ApprovalDetailDrawer
         requestId={selectedRequestId}
         onClose={() => setSelectedRequestId(null)}
+        onActionComplete={fetchDashboard}
       />
     </div>
   );
