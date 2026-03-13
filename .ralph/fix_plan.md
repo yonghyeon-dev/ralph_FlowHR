@@ -96,7 +96,7 @@
 ### L1: Performance > L2: 목표 + 평가 + 진행 + 1:1
 - [x] WI-040-feat 목표 대시보드 (4 KPI, 부서별 달성률 차트, 활성사이클) | L1:Performance > L2:목표 > L3:대시보드 | batch:11
 - [x] WI-041-feat 평가 설정 (사이클 폼, 가중치 차트) | L1:Performance > L2:평가 > L3:설정 | batch:12
-- [ ] WI-042-feat 평가 진행 현황 (5명+ 테이블) | L1:Performance > L2:진행 > L3:현황 | batch:13
+- [x] WI-042-feat 평가 진행 현황 (5명+ 테이블) | L1:Performance > L2:진행 > L3:현황 | batch:13
 - [ ] WI-043-feat 1:1 허브 (일정 목록, 안건 미리보기) | L1:Performance > L2:1:1 > L3:허브 | batch:14
 
 ## Phase 10: Recruiting (채용)
@@ -106,7 +106,7 @@
 
 ### L1: Recruiting > L2: 대시보드 + 공고 + 파이프라인 + 온보딩 + 오프보딩
 - [x] WI-045-feat 채용 대시보드 (4 KPI) | L1:Recruiting > L2:대시보드 > L3:KPI | batch:12
-- [ ] WI-046-feat 채용 공고 관리 (테이블, CRUD) | L1:Recruiting > L2:공고 > L3:관리 | batch:13
+- [x] WI-046-feat 채용 공고 관리 (테이블, CRUD) | L1:Recruiting > L2:공고 > L3:관리 | batch:13
 - [ ] WI-047-feat 채용 파이프라인 (4컬럼 칸반, 드래그앤드롭) | L1:Recruiting > L2:파이프라인 > L3:칸반 | batch:14
 - [ ] WI-048-feat 온보딩 관리 (진행률, 체크리스트) | L1:Recruiting > L2:온보딩 > L3:체크리스트 | batch:15
 - [ ] WI-049-feat 오프보딩 관리 (6태스크 체크리스트) | L1:Recruiting > L2:오프보딩 > L3:체크리스트 | batch:16
