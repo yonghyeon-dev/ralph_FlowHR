@@ -419,11 +419,35 @@ mark_wi_done() {
   fi
 }
 
+recover_stale_wis() {
+  # 워커 실행 전, git history에 이미 머지된 WI가 fix_plan에서 미체크인지 확인
+  # 이전 mark_wi_done 버그로 누락된 stale WI를 사전에 정리
+  local recovered=0
+  while IFS= read -r wi; do
+    [[ -z "$wi" ]] && continue
+    local wi_prefix="${wi%% *}"  # "WI-022-feat" 부분만 추출
+    if git log --oneline --all --grep="$wi_prefix" 2>/dev/null | head -1 | grep -q .; then
+      mark_wi_done "$wi" || true
+      recovered=$((recovered + 1))
+    fi
+  done < <(get_next_n_wis 99)
+  if [[ $recovered -gt 0 ]]; then
+    log "🔄 stale WI ${recovered}건 사전 복구"
+    if ! git diff --quiet "$FIX_PLAN" 2>/dev/null; then
+      git add "$FIX_PLAN"
+      git commit -m "WI-chore fix_plan stale WI ${recovered}건 복구" --no-verify 2>/dev/null || true
+    fi
+  fi
+}
+
 execute_parallel() {
   local -a wis=()
   local -a pids=()
   local -a worktree_info=()
   local -a worktree_wi=()   # worktree_info와 1:1 매핑되는 WI 이름
+
+  # 워커 실행 전 stale WI 사전 복구
+  recover_stale_wis
 
   while IFS= read -r wi; do
     [[ -n "$wi" ]] && wis+=("$wi")
