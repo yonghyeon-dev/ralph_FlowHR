@@ -42,7 +42,7 @@
 - [x] WI-015-feat 교대 보드 (주간 교대표, 교대유형 뱃지) | L1:Attendance > L2:교대 > L3:주간보드
 - [x] WI-016-feat 출결 기록 테이블 (필터, 정렬, 페이지네이션, 상태 뱃지) | L1:Attendance > L2:기록 > L3:테이블
 - [x] WI-017-feat 근태 예외 처리 (4유형 카드, 상세, 승인/반려) | L1:Attendance > L2:예외 > L3:처리
-- [ ] WI-018-feat 근태 마감 (체크리스트 4항목, 상태 전환) | L1:Attendance > L2:마감 > L3:체크리스트
+- [x] WI-018-feat 근태 마감 (체크리스트 4항목, 상태 전환) | L1:Attendance > L2:마감 > L3:체크리스트
 
 ## Phase 5: Leave (휴가관리)
 
