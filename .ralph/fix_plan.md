@@ -109,13 +109,13 @@
 - [x] WI-046-feat 채용 공고 관리 (테이블, CRUD) | L1:Recruiting > L2:공고 > L3:관리 | batch:13
 - [x] WI-047-feat 채용 파이프라인 (4컬럼 칸반, 드래그앤드롭) | L1:Recruiting > L2:파이프라인 > L3:칸반 | batch:14
 - [x] WI-048-feat 온보딩 관리 (진행률, 체크리스트) | L1:Recruiting > L2:온보딩 > L3:체크리스트 | batch:15
-- [ ] WI-049-feat 오프보딩 관리 (6태스크 체크리스트) | L1:Recruiting > L2:오프보딩 > L3:체크리스트 | batch:16
+- [x] WI-049-feat 오프보딩 관리 (6태스크 체크리스트) | L1:Recruiting > L2:오프보딩 > L3:체크리스트 | batch:16
 
 ## Phase 11: Reports (리포트)
 
 ### L1: Reports > L2: 센터 + 인사이트 + 예약
 - [x] WI-050-feat 리포트 센터 (7카드 그리드) | L1:Reports > L2:센터 > L3:그리드 | batch:15
-- [ ] WI-051-feat 인사 인사이트 (부서분포 차트, 근속분포) | L1:Reports > L2:인사이트 > L3:인사 | batch:16
+- [x] WI-051-feat 인사 인사이트 (부서분포 차트, 근속분포) | L1:Reports > L2:인사이트 > L3:인사 | batch:16
 - [ ] WI-052-feat 근태 인사이트 (주간추이 차트, 예외요약) | L1:Reports > L2:인사이트 > L3:근태 | batch:17
 - [ ] WI-053-feat 예약 리포트 (5개 스케줄 CRUD) | L1:Reports > L2:예약 > L3:스케줄 | batch:18
 
