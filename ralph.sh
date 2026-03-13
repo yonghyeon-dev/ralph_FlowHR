@@ -234,7 +234,10 @@ preflight() {
   # 병렬 모드: stale worktree/branch 자동 정리
   if [[ ${PARALLEL_COUNT:-1} -gt 1 ]]; then
     local stale_wt
-    stale_wt=$(git worktree list --porcelain 2>/dev/null | grep "^worktree " | grep -v "$(pwd)$" | sed 's/^worktree //')
+    # Windows 경로 정규화: pwd는 /c/... 반환, git worktree list는 C:/... 반환
+    local main_wt
+    main_wt=$(cd "$(pwd)" && pwd -W 2>/dev/null || pwd)
+    stale_wt=$(git worktree list --porcelain 2>/dev/null | grep "^worktree " | sed 's/^worktree //' | grep -v "^${main_wt}$" | grep -v "^$(pwd)$")
     if [[ -n "$stale_wt" ]]; then
       echo "🧹 stale worktree 정리 중..."
       while IFS= read -r wt; do
@@ -750,15 +753,18 @@ mark_wi_done() {
 
 recover_stale_wis() {
   # 워커 실행 전, 이미 구현된 WI를 사전 감지하여 fix_plan 자동 체크
-  # 오탐 방지: Method 1(git log) + Method 2(prisma)만 사용 — Method 3(파일명)은 오탐 위험으로 제외
+  # 주의: fix_plan 변경만 하고 커밋하지 않음 (로컬 main 커밋 → rebase 충돌 방지)
+  #       커밋은 병렬 결과 처리 후 fix_plan PR에서 함께 처리됨
   local recovered=0
   while IFS= read -r wi; do
     [[ -z "$wi" ]] && continue
     local wi_prefix="${wi%% *}"
 
-    # Method 1: git log에 WI 커밋 존재 (커밋 제목이 해당 WI prefix로 시작하는 경우만)
-    if git log --oneline --all 2>/dev/null | grep -q "^[a-f0-9]* ${wi_prefix}"; then
-      mark_wi_done "$wi" || true  # update_wi_history는 mark_wi_done 내부에서 호출
+    # Method 1: main 브랜치의 git log에서 WI 커밋 존재 확인
+    # --all 사용 금지 (미머지 PR 브랜치 오탐 방지)
+    # 커밋 제목이 해당 WI prefix로 시작하는 경우만 매칭
+    if git log --oneline main 2>/dev/null | grep -q "^[a-f0-9]* ${wi_prefix}"; then
+      mark_wi_done "$wi" || true
       recovered=$((recovered + 1))
       continue
     fi
@@ -770,18 +776,14 @@ recover_stale_wis() {
       local model
       model=$(echo "$desc" | grep -oE '[A-Z][a-zA-Z]+' | head -1)
       if [[ -n "$model" ]] && grep -q "^model $model " prisma/schema.prisma 2>/dev/null; then
-        mark_wi_done "$wi" || true  # update_wi_history는 mark_wi_done 내부에서 호출
+        mark_wi_done "$wi" || true
         recovered=$((recovered + 1))
         continue
       fi
     fi
   done < <(get_all_unchecked_wis)
   if [[ $recovered -gt 0 ]]; then
-    log "🔄 stale WI ${recovered}건 사전 복구 (RAG 코드 분석)"
-    if ! git diff --quiet "$FIX_PLAN" 2>/dev/null; then
-      git add "$FIX_PLAN"
-      git commit -m "WI-chore fix_plan stale WI ${recovered}건 자동 복구" 2>/dev/null || true
-    fi
+    log "🔄 stale WI ${recovered}건 사전 복구 (fix_plan만 업데이트, 커밋은 PR에서 처리)"
   fi
 }
 
@@ -793,7 +795,9 @@ execute_parallel() {
 
   # PR auto-merge 완료 반영 (이전 iteration PR이 머지됐을 수 있음)
   git pull --rebase origin main 2>/dev/null || {
-    log "⚠️ main 동기화 실패 — git status 확인 필요"
+    git rebase --abort 2>/dev/null || true
+    git reset --hard origin/main 2>/dev/null || true
+    log "⚠️ main 동기화 충돌 — origin/main으로 리셋"
   }
 
   # 워커 실행 전 stale WI 사전 복구
