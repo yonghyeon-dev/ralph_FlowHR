@@ -199,6 +199,16 @@ preflight() {
     errors=$((errors + 1))
   fi
 
+  # 병렬 모드: uncommitted changes 사전 검사
+  if [[ ${PARALLEL_COUNT:-1} -gt 1 ]]; then
+    if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+      echo "ERROR: 병렬 모드에서는 uncommitted changes가 있으면 안 됩니다."
+      echo "       worktree 생성 시 충돌이 발생합니다. 먼저 커밋하세요."
+      echo "       git status 로 변경사항을 확인하세요."
+      errors=$((errors + 1))
+    fi
+  fi
+
   if [[ $errors -gt 0 ]]; then
     echo ""
     echo "$errors개 오류. Ralph Loop을 시작할 수 없습니다."
@@ -395,10 +405,21 @@ setup_worktree() {
   echo "$worktree_path|$branch_name"
 }
 
+mark_wi_done() {
+  # fix_plan.md에서 특정 WI 이름을 포함하는 첫 번째 미완료 항목을 완료 처리
+  local wi_name="$1"
+  # WI 이름에서 특수문자 이스케이프 (sed용)
+  local escaped
+  escaped=$(printf '%s\n' "$wi_name" | sed 's/[[\.*^$()+?{|\\]/\\&/g')
+  # 첫 번째 매칭만 변환: - [ ] → - [x]
+  sed -i "0,/^\- \[ \].*${escaped}/{s/^\- \[ \]/- [x]/}" "$FIX_PLAN" 2>/dev/null
+}
+
 execute_parallel() {
   local -a wis=()
   local -a pids=()
   local -a worktree_info=()
+  local -a worktree_wi=()   # worktree_info와 1:1 매핑되는 WI 이름
 
   while IFS= read -r wi; do
     [[ -n "$wi" ]] && wis+=("$wi")
@@ -420,6 +441,7 @@ execute_parallel() {
     local info
     info=$(setup_worktree "$wi" "$idx") || continue
     worktree_info+=("$info")
+    worktree_wi+=("$wi")
 
     local wt_path="${info%%|*}"
 
@@ -435,7 +457,7 @@ execute_parallel() {
 [Ralph Loop #$loop_count - Worker $idx/$wi_count] Completed: $completed | Remaining: $unchecked
 [TARGET] ${wi}
 [RULE] 위 TARGET 작업 1개만 처리하고 RALPH_STATUS 출력 후 즉시 종료. 다른 WI 절대 금지.
-[PARALLEL MODE] 이미 작업 브랜치에 있음. 별도 브랜치 생성·PR 생성 불필요. 현재 브랜치에서 직접 커밋할 것.
+[PARALLEL MODE] 이미 작업 브랜치에 있음. 별도 브랜치 생성·PR 생성 불필요. 현재 브랜치에서 직접 커밋할 것. fix_plan.md는 절대 수정하지 말 것(외부 루프가 처리).
 CTXEOF
 )
 
@@ -496,13 +518,19 @@ CTXEOF
       skipped=$((skipped + 1))
     else
       log "  [Worker $idx] 머지: $branch"
-      if git merge "$branch" --no-edit 2>/dev/null; then
+      local merge_output
+      merge_output=$(git merge "$branch" --no-edit 2>&1)
+      local merge_rc=$?
+      if [[ $merge_rc -eq 0 ]]; then
         merged=$((merged + 1))
+        # 머지 성공 → 메인 루프가 fix_plan.md 체크 처리
+        mark_wi_done "${worktree_wi[$i]}"
         log "  [Worker $idx] ✅ 머지 성공"
       else
         git merge --abort 2>/dev/null || true
         failed=$((failed + 1))
         log "  [Worker $idx] ❌ 머지 충돌 — 롤백"
+        log "  [Worker $idx] 원인: $(echo "$merge_output" | head -3)"
       fi
     fi
 
@@ -516,6 +544,12 @@ CTXEOF
 
   log "🔀 병렬 결과: ${merged} 머지, ${failed} 충돌, ${skipped} 스킵"
   call_count=$((call_count + wi_count))
+
+  # fix_plan.md 변경사항 커밋 (머지 성공한 WI가 있을 때만)
+  if [[ $merged -gt 0 ]] && ! git diff --quiet "$FIX_PLAN" 2>/dev/null; then
+    git add "$FIX_PLAN"
+    git commit -m "WI-chore fix_plan 업데이트 (병렬 ${merged}건 완료)" --no-verify 2>/dev/null || true
+  fi
 
   # 전부 실패면 에러
   [[ $failed -eq $wi_count ]] && return 1
@@ -626,6 +660,21 @@ main() {
 
   # 이전 실행 상태 복구 확인
   restore_state
+
+  # 병렬 모드: 이전 실행의 stale worktree/branch 정리
+  if [[ $PARALLEL_COUNT -gt 1 ]]; then
+    cleanup_worktrees 2>/dev/null || true
+    # stale parallel branches 정리
+    local stale_branches
+    stale_branches=$(git branch --list 'parallel/worker-*' 2>/dev/null || true)
+    if [[ -n "$stale_branches" ]]; then
+      echo "$stale_branches" | while read -r b; do
+        b=$(echo "$b" | tr -d ' *')
+        git branch -D "$b" 2>/dev/null || true
+      done
+      log "🧹 이전 병렬 브랜치 정리 완료"
+    fi
+  fi
 
   log "=== Ralph Loop Started ==="
   log "Max iterations: $MAX_ITERATIONS | Rate limit: $RATE_LIMIT_PER_HOUR/hr"
