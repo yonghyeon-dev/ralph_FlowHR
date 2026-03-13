@@ -10,6 +10,9 @@ import {
   CardBody,
   Badge,
   BarChart,
+  Button,
+  Input,
+  Select,
 } from "@/components/ui";
 import type { BadgeVariant, BarChartDatum } from "@/components/ui";
 
@@ -47,6 +50,25 @@ interface DashboardData {
   activeCycle: ActiveCycleInfo | null;
 }
 
+// ─── Eval Settings Types ────────────────────────────────────
+
+interface EvalWeights {
+  performance: number;
+  competency: number;
+  collaboration: number;
+  leadership: number;
+}
+
+interface EvalCycleData {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  type: string;
+  status: string;
+  weights: EvalWeights;
+}
+
 // ─── Constants ──────────────────────────────────────────────
 
 const TABS = [
@@ -62,6 +84,26 @@ const CYCLE_TYPE_LABELS: Record<string, string> = {
   HALF_YEARLY: "반기",
   QUARTERLY: "분기",
   ANNUAL: "연간",
+};
+
+const EVAL_TYPE_OPTIONS = [
+  { value: "HALF_YEARLY", label: "반기 평가" },
+  { value: "QUARTERLY", label: "분기 평가" },
+  { value: "ANNUAL", label: "연간 평가" },
+];
+
+const WEIGHT_LABELS: Record<keyof EvalWeights, string> = {
+  performance: "업무 성과",
+  competency: "역량",
+  collaboration: "협업",
+  leadership: "리더십",
+};
+
+const DEFAULT_WEIGHTS: EvalWeights = {
+  performance: 40,
+  competency: 30,
+  collaboration: 20,
+  leadership: 10,
 };
 
 // ─── Component ──────────────────────────────────────────────
@@ -141,7 +183,7 @@ function PerformanceContent() {
       {activeTab === "goals" && (
         <GoalsDashboard data={data} loading={loading} />
       )}
-      {activeTab === "evaluation" && <PlaceholderTab label="평가 설정" />}
+      {activeTab === "evaluation" && <EvaluationSettings />}
       {activeTab === "progress" && <PlaceholderTab label="평가 진행 현황" />}
       {activeTab === "one-on-one" && <PlaceholderTab label="1:1 미팅 허브" />}
     </div>
@@ -302,6 +344,266 @@ function ActiveCycleCard({ cycle }: { cycle: ActiveCycleInfo }) {
           style={{ width: `${cycle.completionRate}%` }}
         />
       </div>
+    </div>
+  );
+}
+
+// ─── Evaluation Settings Tab ────────────────────────────────
+
+function EvaluationSettings() {
+  const [cycles, setCycles] = useState<EvalCycleData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Form state — initialised from active cycle or defaults
+  const [selectedCycleId, setSelectedCycleId] = useState<string>("");
+  const [cycleName, setCycleName] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [cycleType, setCycleType] = useState("HALF_YEARLY");
+  const [weights, setWeights] = useState<EvalWeights>({ ...DEFAULT_WEIGHTS });
+
+  const fetchCycles = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/performance/eval-settings");
+      if (res.ok) {
+        const json = await res.json();
+        const list: EvalCycleData[] = json.cycles ?? [];
+        setCycles(list);
+
+        // Pre-fill form from the most recent ACTIVE cycle (or first cycle)
+        const active = list.find((c) => c.status === "ACTIVE") ?? list[0];
+        if (active) {
+          setSelectedCycleId(active.id);
+          setCycleName(active.name);
+          setStartDate(active.startDate);
+          setEndDate(active.endDate);
+          setCycleType(active.type);
+          setWeights(active.weights);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCycles();
+  }, [fetchCycles]);
+
+  const handleCycleSelect = (id: string) => {
+    const cycle = cycles.find((c) => c.id === id);
+    if (cycle) {
+      setSelectedCycleId(cycle.id);
+      setCycleName(cycle.name);
+      setStartDate(cycle.startDate);
+      setEndDate(cycle.endDate);
+      setCycleType(cycle.type);
+      setWeights(cycle.weights);
+    }
+  };
+
+  const handleWeightChange = (key: keyof EvalWeights, value: number) => {
+    setWeights((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/performance/eval-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedCycleId || undefined,
+          name: cycleName,
+          startDate,
+          endDate,
+          type: cycleType,
+          weights,
+        }),
+      });
+      if (res.ok) {
+        await fetchCycles();
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-sp-12">
+        <span className="text-sm text-text-tertiary">불러오는 중...</span>
+      </div>
+    );
+  }
+
+  const weightTotal = Object.values(weights).reduce((s, v) => s + v, 0);
+  const weightChartData: BarChartDatum[] = (
+    Object.keys(WEIGHT_LABELS) as (keyof EvalWeights)[]
+  ).map((key) => ({
+    name: WEIGHT_LABELS[key],
+    value: weights[key],
+  }));
+
+  return (
+    <div className="space-y-sp-6">
+      {/* Cycle selector — only when multiple cycles exist */}
+      {cycles.length > 1 && (
+        <div className="flex items-center gap-sp-3">
+          <span className="text-sm font-medium text-text-secondary">
+            평가 주기 선택:
+          </span>
+          <div className="flex gap-sp-2">
+            {cycles.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => handleCycleSelect(c.id)}
+                className={[
+                  "px-sp-3 py-sp-1 text-sm rounded-sm border transition-colors",
+                  selectedCycleId === c.id
+                    ? "border-brand bg-brand/5 text-brand font-medium"
+                    : "border-border text-text-tertiary hover:text-text-secondary",
+                ].join(" ")}
+              >
+                {c.name}
+                <Badge
+                  variant={
+                    c.status === "ACTIVE"
+                      ? "info"
+                      : c.status === "CLOSED"
+                        ? "success"
+                        : "neutral"
+                  }
+                  className="ml-sp-2"
+                >
+                  {c.status === "ACTIVE"
+                    ? "진행"
+                    : c.status === "CLOSED"
+                      ? "종료"
+                      : "초안"}
+                </Badge>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main 2-column layout */}
+      <Card>
+        <CardHeader>
+          <CardTitle>평가 주기 설정</CardTitle>
+        </CardHeader>
+        <CardBody>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-sp-8">
+            {/* Left: Form */}
+            <div>
+              <Input
+                label="평가 주기명"
+                value={cycleName}
+                onChange={(e) => setCycleName(e.target.value)}
+                placeholder="예: 2026 H1 성과 평가"
+              />
+              <div className="mb-sp-4">
+                <label className="block text-sm font-medium text-text-secondary mb-sp-1">
+                  평가 기간
+                </label>
+                <div className="flex items-center gap-sp-2">
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="flex-1 px-sp-3 py-sp-2 border border-border rounded-sm text-md bg-surface-primary text-text-primary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-brand/10"
+                  />
+                  <span className="text-text-tertiary">~</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="flex-1 px-sp-3 py-sp-2 border border-border rounded-sm text-md bg-surface-primary text-text-primary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-brand/10"
+                  />
+                </div>
+              </div>
+              <Select
+                label="평가 유형"
+                options={EVAL_TYPE_OPTIONS}
+                value={cycleType}
+                onChange={(e) => setCycleType(e.target.value)}
+              />
+            </div>
+
+            {/* Right: Weight chart + sliders */}
+            <div>
+              <div className="font-semibold text-sm text-text-primary mb-sp-4">
+                평가 기준 가중치
+              </div>
+
+              {/* Weight bar chart */}
+              <BarChart
+                data={weightChartData}
+                layout="vertical"
+                height={200}
+                showTooltip
+              />
+
+              {/* Weight sliders */}
+              <div className="mt-sp-4 space-y-sp-3">
+                {(
+                  Object.keys(WEIGHT_LABELS) as (keyof EvalWeights)[]
+                ).map((key) => (
+                  <div key={key} className="flex items-center gap-sp-3">
+                    <span className="text-sm text-text-secondary w-20 shrink-0">
+                      {WEIGHT_LABELS[key]}
+                    </span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={weights[key]}
+                      onChange={(e) =>
+                        handleWeightChange(key, Number(e.target.value))
+                      }
+                      className="flex-1 accent-brand"
+                    />
+                    <span className="text-sm font-medium text-text-primary w-12 text-right">
+                      {weights[key]}%
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between pt-sp-2 border-t border-border">
+                  <span className="text-sm font-medium text-text-secondary">
+                    합계
+                  </span>
+                  <span
+                    className={[
+                      "text-sm font-bold",
+                      weightTotal === 100
+                        ? "text-status-success-text"
+                        : "text-status-danger-text",
+                    ].join(" ")}
+                  >
+                    {weightTotal}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Save button */}
+          <div className="flex justify-end mt-sp-6 pt-sp-4 border-t border-border">
+            <Button
+              variant="primary"
+              onClick={handleSave}
+              disabled={
+                saving || !cycleName || !startDate || !endDate || weightTotal !== 100
+              }
+            >
+              {saving ? "저장 중..." : "설정 저장"}
+            </Button>
+          </div>
+        </CardBody>
+      </Card>
     </div>
   );
 }
