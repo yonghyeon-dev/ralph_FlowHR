@@ -87,6 +87,21 @@ enum ClosingStatus {
   CLOSED
 }
 
+enum LeaveType {
+  ANNUAL
+  HALF_DAY
+  SICK
+  FAMILY_EVENT
+  COMPENSATORY
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 // ─── Tenant ───────────────────────────────────────────────
 
 model Tenant {
@@ -110,6 +125,9 @@ model Tenant {
   attendanceRecords    AttendanceRecord[]
   attendanceExceptions AttendanceException[]
   attendanceClosings   AttendanceClosing[]
+  leavePolicies        LeavePolicy[]
+  leaveBalances        LeaveBalance[]
+  leaveRequests        LeaveRequest[]
 }
 
 // ─── Role ─────────────────────────────────────────────────
@@ -274,6 +292,8 @@ model Employee {
   shiftAssignments     ShiftAssignment[]
   attendanceRecords    AttendanceRecord[]
   attendanceExceptions AttendanceException[]
+  leaveBalances        LeaveBalance[]
+  leaveRequests        LeaveRequest[]
 
   @@unique([tenantId, employeeNumber])
 }
@@ -403,4 +423,76 @@ model AttendanceClosing {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, year, month])
+}
+
+// ─── LeavePolicy ─────────────────────────────────────────
+
+model LeavePolicy {
+  id              String    @id @default(cuid())
+  tenantId        String
+  name            String
+  type            LeaveType
+  description     String?
+  defaultDays     Float
+  carryOverLimit  Float     @default(0)
+  requiresApproval Boolean  @default(true)
+  isActive        Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leaveBalances LeaveBalance[]
+  leaveRequests LeaveRequest[]
+
+  @@unique([tenantId, type])
+}
+
+// ─── LeaveBalance ────────────────────────────────────────
+
+model LeaveBalance {
+  id           String @id @default(cuid())
+  tenantId     String
+  employeeId   String
+  policyId     String
+  year         Int
+  totalDays    Float
+  usedDays     Float  @default(0)
+  pendingDays  Float  @default(0)
+  carriedOver  Float  @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  policy   LeavePolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, employeeId, policyId, year])
+}
+
+// ─── LeaveRequest ────────────────────────────────────────
+
+model LeaveRequest {
+  id          String             @id @default(cuid())
+  tenantId    String
+  employeeId  String
+  policyId    String
+  status      LeaveRequestStatus @default(PENDING)
+  startDate   DateTime
+  endDate     DateTime
+  days        Float
+  reason      String?
+  approvedBy  String?
+  approvedAt  DateTime?
+  rejectedBy  String?
+  rejectedAt  DateTime?
+  rejectReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  policy   LeavePolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
 }

@@ -11,6 +11,8 @@ import {
   ExceptionType,
   ExceptionStatus,
   ClosingStatus,
+  LeaveType,
+  LeaveRequestStatus,
 } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -704,8 +706,198 @@ async function main(): Promise<void> {
     },
   });
 
+  // ─── Leave Policies (Acme, 5 types) ──────────────────────
+
+  const leavePolicyDefs = [
+    {
+      name: "연차",
+      type: LeaveType.ANNUAL,
+      description: "법정 연차 휴가 (근속 1년 이상 15일, 1년 미만 월 1일)",
+      defaultDays: 15,
+      carryOverLimit: 5,
+      requiresApproval: true,
+    },
+    {
+      name: "반차",
+      type: LeaveType.HALF_DAY,
+      description: "오전/오후 반일 휴가 (연차에서 0.5일 차감)",
+      defaultDays: 0,
+      carryOverLimit: 0,
+      requiresApproval: true,
+    },
+    {
+      name: "병가",
+      type: LeaveType.SICK,
+      description: "질병 또는 부상으로 인한 휴가 (연간 최대 60일)",
+      defaultDays: 60,
+      carryOverLimit: 0,
+      requiresApproval: true,
+    },
+    {
+      name: "경조사",
+      type: LeaveType.FAMILY_EVENT,
+      description: "결혼, 출산, 사망 등 경조사 휴가",
+      defaultDays: 5,
+      carryOverLimit: 0,
+      requiresApproval: true,
+    },
+    {
+      name: "대체휴가",
+      type: LeaveType.COMPENSATORY,
+      description: "휴일근무 대체 휴가",
+      defaultDays: 0,
+      carryOverLimit: 0,
+      requiresApproval: true,
+    },
+  ];
+
+  const policyIds: Record<string, string> = {};
+  for (const def of leavePolicyDefs) {
+    const policy = await prisma.leavePolicy.upsert({
+      where: { tenantId_type: { tenantId: acme.id, type: def.type } },
+      update: {},
+      create: {
+        tenantId: acme.id,
+        name: def.name,
+        type: def.type,
+        description: def.description,
+        defaultDays: def.defaultDays,
+        carryOverLimit: def.carryOverLimit,
+        requiresApproval: def.requiresApproval,
+      },
+    });
+    policyIds[def.type] = policy.id;
+  }
+
+  // ─── Leave Balances (Acme, 2026) ─────────────────────────
+
+  const leaveBalanceDefs = [
+    { employeeNumber: "EMP-20200101", type: LeaveType.ANNUAL, totalDays: 20, usedDays: 3, pendingDays: 0, carriedOver: 5 },
+    { employeeNumber: "EMP-20210301", type: LeaveType.ANNUAL, totalDays: 18, usedDays: 2, pendingDays: 1, carriedOver: 3 },
+    { employeeNumber: "EMP-20210601", type: LeaveType.ANNUAL, totalDays: 18, usedDays: 5, pendingDays: 0, carriedOver: 3 },
+    { employeeNumber: "EMP-20220415", type: LeaveType.ANNUAL, totalDays: 16, usedDays: 1, pendingDays: 2, carriedOver: 1 },
+    { employeeNumber: "EMP-20220901", type: LeaveType.ANNUAL, totalDays: 16, usedDays: 4, pendingDays: 0, carriedOver: 1 },
+    { employeeNumber: "EMP-20230201", type: LeaveType.ANNUAL, totalDays: 15, usedDays: 2, pendingDays: 1, carriedOver: 0 },
+    { employeeNumber: "EMP-20230601", type: LeaveType.ANNUAL, totalDays: 15, usedDays: 0, pendingDays: 0, carriedOver: 0 },
+    { employeeNumber: "EMP-20240101", type: LeaveType.ANNUAL, totalDays: 15, usedDays: 1, pendingDays: 0, carriedOver: 0 },
+    { employeeNumber: "EMP-20220415", type: LeaveType.SICK, totalDays: 60, usedDays: 2, pendingDays: 0, carriedOver: 0 },
+    { employeeNumber: "EMP-20210601", type: LeaveType.COMPENSATORY, totalDays: 2, usedDays: 1, pendingDays: 0, carriedOver: 0 },
+  ];
+
+  for (const def of leaveBalanceDefs) {
+    const empId = employeeIds[def.employeeNumber];
+    const polId = policyIds[def.type];
+    await prisma.leaveBalance.upsert({
+      where: {
+        tenantId_employeeId_policyId_year: {
+          tenantId: acme.id,
+          employeeId: empId,
+          policyId: polId,
+          year: 2026,
+        },
+      },
+      update: {},
+      create: {
+        tenantId: acme.id,
+        employeeId: empId,
+        policyId: polId,
+        year: 2026,
+        totalDays: def.totalDays,
+        usedDays: def.usedDays,
+        pendingDays: def.pendingDays,
+        carriedOver: def.carriedOver,
+      },
+    });
+  }
+
+  // ─── Leave Requests (Acme) ───────────────────────────────
+
+  const leaveRequestDefs = [
+    {
+      employeeNumber: "EMP-20220415",
+      type: LeaveType.ANNUAL,
+      status: LeaveRequestStatus.APPROVED,
+      startDate: "2026-02-10",
+      endDate: "2026-02-10",
+      days: 1,
+      reason: "개인 사유",
+      approvedBy: employeeIds["EMP-20210601"],
+    },
+    {
+      employeeNumber: "EMP-20210301",
+      type: LeaveType.ANNUAL,
+      status: LeaveRequestStatus.PENDING,
+      startDate: "2026-03-20",
+      endDate: "2026-03-20",
+      days: 1,
+      reason: "가족 행사",
+    },
+    {
+      employeeNumber: "EMP-20220415",
+      type: LeaveType.ANNUAL,
+      status: LeaveRequestStatus.PENDING,
+      startDate: "2026-03-25",
+      endDate: "2026-03-26",
+      days: 2,
+      reason: "여행",
+    },
+    {
+      employeeNumber: "EMP-20230201",
+      type: LeaveType.HALF_DAY,
+      status: LeaveRequestStatus.APPROVED,
+      startDate: "2026-03-14",
+      endDate: "2026-03-14",
+      days: 0.5,
+      reason: "병원 방문",
+      approvedBy: employeeIds["EMP-20210601"],
+    },
+    {
+      employeeNumber: "EMP-20220901",
+      type: LeaveType.FAMILY_EVENT,
+      status: LeaveRequestStatus.APPROVED,
+      startDate: "2026-01-20",
+      endDate: "2026-01-22",
+      days: 3,
+      reason: "가족 경조사",
+      approvedBy: employeeIds["EMP-20200101"],
+    },
+    {
+      employeeNumber: "EMP-20240101",
+      type: LeaveType.ANNUAL,
+      status: LeaveRequestStatus.REJECTED,
+      startDate: "2026-03-10",
+      endDate: "2026-03-12",
+      days: 3,
+      reason: "개인 휴가",
+      rejectedBy: employeeIds["EMP-20210301"],
+      rejectReason: "프로젝트 마감 기간과 겹침",
+    },
+  ];
+
+  for (const def of leaveRequestDefs) {
+    const empId = employeeIds[def.employeeNumber];
+    const polId = policyIds[def.type];
+    await prisma.leaveRequest.create({
+      data: {
+        tenantId: acme.id,
+        employeeId: empId,
+        policyId: polId,
+        status: def.status,
+        startDate: new Date(def.startDate),
+        endDate: new Date(def.endDate),
+        days: def.days,
+        reason: def.reason,
+        approvedBy: def.approvedBy,
+        approvedAt: def.approvedBy ? new Date() : undefined,
+        rejectedBy: def.rejectedBy,
+        rejectedAt: def.rejectedBy ? new Date() : undefined,
+        rejectReason: def.rejectReason,
+      },
+    });
+  }
+
   console.log(
-    "Seed completed: 2 tenants, 9 roles, 7 users, 9 departments, 9 positions, 10 employees, 11 changes, 5 shifts, 8 assignments, 40 attendance records, 4 exceptions, 2 closings",
+    "Seed completed: 2 tenants, 9 roles, 7 users, 9 departments, 9 positions, 10 employees, 11 changes, 5 shifts, 8 assignments, 40 attendance records, 4 exceptions, 2 closings, 5 leave policies, 10 leave balances, 6 leave requests",
   );
 }
 
