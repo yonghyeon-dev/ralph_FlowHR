@@ -136,7 +136,7 @@
 ## Phase 14: Employee Portal (직원 포탈)
 
 ### L1: Employee > L2: 홈 + 스케줄 + 신청 + 수신함 + 문서 + 프로필
-- [ ] WI-060-feat 직원 홈 (근무상태 히어로, 퀵액션, 미니캘린더, 할일, 요약통계, 모바일) | L1:Employee > L2:홈 > L3:대시보드 | batch:20
+- [x] WI-060-feat 직원 홈 (근무상태 히어로, 퀵액션, 미니캘린더, 할일, 요약통계, 모바일) | L1:Employee > L2:홈 > L3:대시보드 | batch:20
 - [ ] WI-061-feat 출퇴근 체크 + 주간 스케줄 (출퇴근 패널, 주간 테이블) | L1:Employee > L2:스케줄 > L3:출퇴근 | batch:21
 - [ ] WI-062-feat 출결 이력 (최근 10건 테이블, 페이지네이션) | L1:Employee > L2:스케줄 > L3:이력 | batch:22
 - [ ] WI-063-feat 신청 유형 그리드 + 휴가 신청 폼 (7유형 카드, 3단계 폼) | L1:Employee > L2:신청 > L3:휴가폼 | batch:23
