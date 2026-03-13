@@ -102,6 +102,126 @@ enum LeaveRequestStatus {
   CANCELLED
 }
 
+enum WorkflowStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+}
+
+enum ApprovalRequestStatus {
+  PENDING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  CANCELLED
+  ESCALATED
+}
+
+enum DocumentStatus {
+  DRAFT
+  SENT
+  VIEWED
+  SIGNED
+  EXPIRED
+  CANCELLED
+}
+
+enum DocumentTemplateCategory {
+  CONTRACT
+  NOTICE
+  NDA
+  CERTIFICATE
+}
+
+enum RequestPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum PayrollRuleType {
+  FIXED
+  VARIABLE
+  DEDUCTION
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  DATA_COLLECTION
+  CHANGE_REVIEW
+  CALCULATION
+  REVIEW
+  CONFIRMED
+  CANCELLED
+}
+
+enum PayslipStatus {
+  DRAFT
+  CONFIRMED
+  SENT
+  REISSUE_REQUESTED
+}
+
+enum GoalStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum EvalCycleStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum EvalCycleType {
+  HALF_YEARLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum EvaluationStatus {
+  NOT_STARTED
+  SELF_REVIEW
+  PEER_REVIEW
+  MANAGER_REVIEW
+  COMPLETED
+}
+
+enum OneOnOneStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum JobPostingStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SCREENING
+  FIRST_INTERVIEW
+  SECOND_INTERVIEW
+  FINAL
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+enum BoardingTaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+}
+
 // ─── Tenant ───────────────────────────────────────────────
 
 model Tenant {
@@ -128,6 +248,23 @@ model Tenant {
   leavePolicies        LeavePolicy[]
   leaveBalances        LeaveBalance[]
   leaveRequests        LeaveRequest[]
+  workflows            Workflow[]
+  approvalRequests     ApprovalRequest[]
+  approvalSteps        ApprovalStep[]
+  documentTemplates    DocumentTemplate[]
+  documents            Document[]
+  signatures           Signature[]
+  payrollRules         PayrollRule[]
+  payrollRuns          PayrollRun[]
+  payslips             Payslip[]
+  goals                Goal[]
+  evalCycles           EvalCycle[]
+  evaluations          Evaluation[]
+  oneOnOnes            OneOnOne[]
+  jobPostings          JobPosting[]
+  applications         Application[]
+  onboardingTasks      OnboardingTask[]
+  offboardingTasks     OffboardingTask[]
 }
 
 // ─── Role ─────────────────────────────────────────────────
@@ -294,6 +431,20 @@ model Employee {
   attendanceExceptions AttendanceException[]
   leaveBalances        LeaveBalance[]
   leaveRequests        LeaveRequest[]
+  approvalRequests       ApprovalRequest[] @relation("ApprovalRequester")
+  approvalStepsAssigned  ApprovalStep[]    @relation("ApprovalStepApprover")
+  sentDocuments          Document[]        @relation("DocumentSender")
+  receivedDocuments      Document[]        @relation("DocumentRecipient")
+  signatures             Signature[]
+  payslips               Payslip[]
+  goals                  Goal[]
+  evaluations            Evaluation[]
+  oneOnOnesAsManager     OneOnOne[]        @relation("OneOnOneManager")
+  oneOnOnesAsEmployee    OneOnOne[]        @relation("OneOnOneEmployee")
+  jobPostings            JobPosting[]
+  applications           Application[]
+  onboardingTasks        OnboardingTask[]
+  offboardingTasks       OffboardingTask[]
 
   @@unique([tenantId, employeeNumber])
 }
@@ -495,4 +646,397 @@ model LeaveRequest {
   tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   policy   LeavePolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+}
+
+// ─── Workflow ──────────────────────────────────────────────
+
+model Workflow {
+  id          String         @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  triggerType String
+  status      WorkflowStatus @default(ACTIVE)
+  steps       Json           @default("[]")
+  conditions  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  approvalRequests ApprovalRequest[]
+
+  @@unique([tenantId, name])
+}
+
+// ─── ApprovalRequest ──────────────────────────────────────
+
+model ApprovalRequest {
+  id          String                @id @default(cuid())
+  tenantId    String
+  workflowId  String
+  requesterId String
+  title       String
+  description String?
+  status      ApprovalRequestStatus @default(PENDING)
+  priority    RequestPriority       @default(MEDIUM)
+  requestType String
+  data        Json?
+  escalatedAt DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workflow  Workflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  requester Employee       @relation("ApprovalRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  steps     ApprovalStep[]
+}
+
+// ─── ApprovalStep ─────────────────────────────────────────
+
+model ApprovalStep {
+  id        String                @id @default(cuid())
+  tenantId  String
+  requestId String
+  stepOrder Int
+  approverId String
+  status    ApprovalRequestStatus @default(PENDING)
+  comment   String?
+  actionAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  request  ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approver Employee        @relation("ApprovalStepApprover", fields: [approverId], references: [id], onDelete: Cascade)
+}
+
+// ─── DocumentTemplate ───────────────────────────────────
+
+model DocumentTemplate {
+  id          String                   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  category    DocumentTemplateCategory
+  content     Json                     @default("{}")
+  version     String                   @default("1.0")
+  usageCount  Int                      @default(0)
+  isActive    Boolean                  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documents Document[]
+
+  @@unique([tenantId, name])
+}
+
+// ─── Document ───────────────────────────────────────────
+
+model Document {
+  id          String         @id @default(cuid())
+  tenantId    String
+  templateId  String
+  senderId    String
+  recipientId String
+  title       String
+  status      DocumentStatus @default(DRAFT)
+  deadline    DateTime?
+  sentAt      DateTime?
+  viewedAt    DateTime?
+  completedAt DateTime?
+  memo        String?
+  notifyEmail Boolean        @default(true)
+  notifyReminder Boolean     @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template  DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  sender    Employee         @relation("DocumentSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient Employee         @relation("DocumentRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  signatures Signature[]
+}
+
+// ─── Signature ──────────────────────────────────────────
+
+model Signature {
+  id            String  @id @default(cuid())
+  tenantId      String
+  documentId    String
+  signerId      String
+  signatureData String  @db.Text
+  ipAddress     String?
+  signedAt      DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  signer   Employee @relation(fields: [signerId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, signerId])
+}
+
+// ─── PayrollRule ───────────────────────────────────────
+
+model PayrollRule {
+  id          String          @id @default(cuid())
+  tenantId    String
+  name        String
+  type        PayrollRuleType
+  description String?
+  formula     String
+  rate        Float?
+  isActive    Boolean         @default(true)
+  sortOrder   Int             @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+}
+
+// ─── PayrollRun ───────────────────────────────────────
+
+model PayrollRun {
+  id              String           @id @default(cuid())
+  tenantId        String
+  year            Int
+  month           Int
+  status          PayrollRunStatus @default(DRAFT)
+  currentStep     Int              @default(1)
+  totalEmployees  Int              @default(0)
+  totalAmount     Float            @default(0)
+  confirmedBy     String?
+  confirmedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payslips Payslip[]
+
+  @@unique([tenantId, year, month])
+}
+
+// ─── Payslip ──────────────────────────────────────────
+
+model Payslip {
+  id            String        @id @default(cuid())
+  tenantId      String
+  payrollRunId  String
+  employeeId    String
+  baseSalary    Float
+  allowances    Float         @default(0)
+  deductions    Float         @default(0)
+  netAmount     Float
+  breakdown     Json          @default("{}")
+  status        PayslipStatus @default(DRAFT)
+  sentAt        DateTime?
+  viewedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee   Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([payrollRunId, employeeId])
+}
+
+// ─── Goal ────────────────────────────────────────────
+
+model Goal {
+  id          String     @id @default(cuid())
+  tenantId    String
+  employeeId  String
+  cycleId     String
+  title       String
+  description String?
+  progress    Int        @default(0) // 0-100
+  status      GoalStatus @default(NOT_STARTED)
+  weight      Float      @default(1.0)
+  dueDate     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  cycle    EvalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+}
+
+// ─── EvalCycle ───────────────────────────────────────
+
+model EvalCycle {
+  id        String          @id @default(cuid())
+  tenantId  String
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  type      EvalCycleType   @default(HALF_YEARLY)
+  status    EvalCycleStatus @default(DRAFT)
+  weights   Json            @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  goals       Goal[]
+  evaluations Evaluation[]
+
+  @@unique([tenantId, name])
+}
+
+// ─── Evaluation ──────────────────────────────────────
+
+model Evaluation {
+  id            String           @id @default(cuid())
+  tenantId      String
+  employeeId    String
+  cycleId       String
+  status        EvaluationStatus @default(NOT_STARTED)
+  selfScore     Float?
+  peerScore     Float?
+  managerScore  Float?
+  finalScore    Float?
+  selfComment   String?
+  managerComment String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  cycle    EvalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, employeeId, cycleId])
+}
+
+// ─── OneOnOne ────────────────────────────────────────
+
+model OneOnOne {
+  id          String         @id @default(cuid())
+  tenantId    String
+  managerId   String
+  employeeId  String
+  scheduledAt DateTime
+  duration    Int            @default(30) // minutes
+  status      OneOnOneStatus @default(SCHEDULED)
+  agenda      String?
+  notes       String?        @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  manager  Employee @relation("OneOnOneManager", fields: [managerId], references: [id], onDelete: Cascade)
+  employee Employee @relation("OneOnOneEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+// ─── JobPosting ──────────────────────────────────────
+
+model JobPosting {
+  id           String           @id @default(cuid())
+  tenantId     String
+  title        String
+  departmentId String?
+  positionId   String?
+  hiringManagerId String
+  status       JobPostingStatus @default(DRAFT)
+  description  String?          @db.Text
+  requirements String?          @db.Text
+  location     String?
+  employmentType EmploymentType @default(FULL_TIME)
+  headcount    Int              @default(1)
+  openDate     DateTime?
+  closeDate    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  hiringManager Employee      @relation(fields: [hiringManagerId], references: [id], onDelete: Cascade)
+  applications  Application[]
+
+  @@unique([tenantId, title])
+}
+
+// ─── Application ─────────────────────────────────────
+
+model Application {
+  id            String            @id @default(cuid())
+  tenantId      String
+  jobPostingId  String
+  candidateName String
+  candidateEmail String
+  candidatePhone String?
+  resumeUrl     String?
+  status        ApplicationStatus @default(APPLIED)
+  stage         Int               @default(1) // pipeline stage order
+  rating        Int?              // 1-5
+  notes         String?           @db.Text
+  appliedAt     DateTime          @default(now())
+  hiredAt       DateTime?
+  rejectedAt    DateTime?
+  assigneeId    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  jobPosting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  assignee   Employee?  @relation(fields: [assigneeId], references: [id])
+}
+
+// ─── OnboardingTask ──────────────────────────────────
+
+model OnboardingTask {
+  id          String             @id @default(cuid())
+  tenantId    String
+  employeeId  String
+  title       String
+  description String?
+  category    String             // e.g. "IT", "HR", "ADMIN", "TEAM"
+  status      BoardingTaskStatus @default(PENDING)
+  dueDate     DateTime?
+  completedAt DateTime?
+  sortOrder   Int                @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+// ─── OffboardingTask ─────────────────────────────────
+
+model OffboardingTask {
+  id          String             @id @default(cuid())
+  tenantId    String
+  employeeId  String
+  title       String
+  description String?
+  category    String             // e.g. "IT", "HR", "ADMIN", "FINANCE", "LEGAL", "TEAM"
+  status      BoardingTaskStatus @default(PENDING)
+  dueDate     DateTime?
+  completedAt DateTime?
+  sortOrder   Int                @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }

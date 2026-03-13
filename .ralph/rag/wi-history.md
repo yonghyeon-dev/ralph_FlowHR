@@ -1,0 +1,2 @@
+- [x] WI-053-feat 예약 리포트 (5개 스케줄 CRUD) | no-commit
+- [x] WI-055-feat 역할 관리 (6역할 테이블, CRUD) | no-commit
