@@ -163,6 +163,39 @@ enum PayslipStatus {
   REISSUE_REQUESTED
 }
 
+enum GoalStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum EvalCycleStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum EvalCycleType {
+  HALF_YEARLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum EvaluationStatus {
+  NOT_STARTED
+  SELF_REVIEW
+  PEER_REVIEW
+  MANAGER_REVIEW
+  COMPLETED
+}
+
+enum OneOnOneStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
 // ─── Tenant ───────────────────────────────────────────────
 
 model Tenant {
@@ -198,6 +231,10 @@ model Tenant {
   payrollRules         PayrollRule[]
   payrollRuns          PayrollRun[]
   payslips             Payslip[]
+  goals                Goal[]
+  evalCycles           EvalCycle[]
+  evaluations          Evaluation[]
+  oneOnOnes            OneOnOne[]
 }
 
 // ─── Role ─────────────────────────────────────────────────
@@ -370,6 +407,10 @@ model Employee {
   receivedDocuments      Document[]        @relation("DocumentRecipient")
   signatures             Signature[]
   payslips               Payslip[]
+  goals                  Goal[]
+  evaluations            Evaluation[]
+  oneOnOnesAsManager     OneOnOne[]        @relation("OneOnOneManager")
+  oneOnOnesAsEmployee    OneOnOne[]        @relation("OneOnOneEmployee")
 
   @@unique([tenantId, employeeNumber])
 }
@@ -777,4 +818,94 @@ model Payslip {
   employee   Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([payrollRunId, employeeId])
+}
+
+// ─── Goal ────────────────────────────────────────────
+
+model Goal {
+  id          String     @id @default(cuid())
+  tenantId    String
+  employeeId  String
+  cycleId     String
+  title       String
+  description String?
+  progress    Int        @default(0) // 0-100
+  status      GoalStatus @default(NOT_STARTED)
+  weight      Float      @default(1.0)
+  dueDate     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  cycle    EvalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+}
+
+// ─── EvalCycle ───────────────────────────────────────
+
+model EvalCycle {
+  id        String          @id @default(cuid())
+  tenantId  String
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  type      EvalCycleType   @default(HALF_YEARLY)
+  status    EvalCycleStatus @default(DRAFT)
+  weights   Json            @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  goals       Goal[]
+  evaluations Evaluation[]
+
+  @@unique([tenantId, name])
+}
+
+// ─── Evaluation ──────────────────────────────────────
+
+model Evaluation {
+  id            String           @id @default(cuid())
+  tenantId      String
+  employeeId    String
+  cycleId       String
+  status        EvaluationStatus @default(NOT_STARTED)
+  selfScore     Float?
+  peerScore     Float?
+  managerScore  Float?
+  finalScore    Float?
+  selfComment   String?
+  managerComment String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  cycle    EvalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, employeeId, cycleId])
+}
+
+// ─── OneOnOne ────────────────────────────────────────
+
+model OneOnOne {
+  id          String         @id @default(cuid())
+  tenantId    String
+  managerId   String
+  employeeId  String
+  scheduledAt DateTime
+  duration    Int            @default(30) // minutes
+  status      OneOnOneStatus @default(SCHEDULED)
+  agenda      String?
+  notes       String?        @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  manager  Employee @relation("OneOnOneManager", fields: [managerId], references: [id], onDelete: Cascade)
+  employee Employee @relation("OneOnOneEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
 }

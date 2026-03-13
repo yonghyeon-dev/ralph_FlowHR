@@ -21,6 +21,11 @@ import {
   PayrollRuleType,
   PayrollRunStatus,
   PayslipStatus,
+  GoalStatus,
+  EvalCycleStatus,
+  EvalCycleType,
+  EvaluationStatus,
+  OneOnOneStatus,
 } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -1608,8 +1613,397 @@ async function main(): Promise<void> {
     });
   }
 
+  // ─── Eval Cycles (Acme) ──────────────────────────────────
+
+  const evalCycleH1 = await prisma.evalCycle.upsert({
+    where: { tenantId_name: { tenantId: acme.id, name: "2026 H1 평가" } },
+    update: {},
+    create: {
+      tenantId: acme.id,
+      name: "2026 H1 평가",
+      startDate: new Date("2026-01-01"),
+      endDate: new Date("2026-06-30"),
+      type: EvalCycleType.HALF_YEARLY,
+      status: EvalCycleStatus.ACTIVE,
+      weights: {
+        performance: 40,
+        competency: 30,
+        collaboration: 20,
+        leadership: 10,
+      },
+    },
+  });
+
+  const evalCycleH2_2025 = await prisma.evalCycle.upsert({
+    where: { tenantId_name: { tenantId: acme.id, name: "2025 H2 평가" } },
+    update: {},
+    create: {
+      tenantId: acme.id,
+      name: "2025 H2 평가",
+      startDate: new Date("2025-07-01"),
+      endDate: new Date("2025-12-31"),
+      type: EvalCycleType.HALF_YEARLY,
+      status: EvalCycleStatus.CLOSED,
+      weights: {
+        performance: 40,
+        competency: 30,
+        collaboration: 20,
+        leadership: 10,
+      },
+    },
+  });
+
+  // ─── Goals (Acme, active cycle) ──────────────────────────
+
+  const goalDefs: {
+    empNumber: string;
+    title: string;
+    description: string;
+    progress: number;
+    status: GoalStatus;
+    weight: number;
+    dueDate: string;
+  }[] = [
+    {
+      empNumber: "EMP-20200101",
+      title: "팀 생산성 20% 향상",
+      description: "개발 프로세스 개선 및 자동화를 통한 팀 생산성 향상",
+      progress: 65,
+      status: GoalStatus.IN_PROGRESS,
+      weight: 1.5,
+      dueDate: "2026-06-30",
+    },
+    {
+      empNumber: "EMP-20200101",
+      title: "기술 부채 해소",
+      description: "레거시 코드 리팩토링 및 테스트 커버리지 80% 달성",
+      progress: 40,
+      status: GoalStatus.IN_PROGRESS,
+      weight: 1.0,
+      dueDate: "2026-06-30",
+    },
+    {
+      empNumber: "EMP-20210601",
+      title: "신규 고객 관리 시스템 구축",
+      description: "CRM 통합 및 고객 데이터 파이프라인 구축",
+      progress: 80,
+      status: GoalStatus.IN_PROGRESS,
+      weight: 1.5,
+      dueDate: "2026-05-31",
+    },
+    {
+      empNumber: "EMP-20210601",
+      title: "팀 역량 강화",
+      description: "팀원 기술 교육 프로그램 운영 및 멘토링",
+      progress: 50,
+      status: GoalStatus.IN_PROGRESS,
+      weight: 1.0,
+      dueDate: "2026-06-30",
+    },
+    {
+      empNumber: "EMP-20220415",
+      title: "API 응답 속도 개선",
+      description: "주요 API 엔드포인트 응답 시간 50% 감소",
+      progress: 90,
+      status: GoalStatus.IN_PROGRESS,
+      weight: 1.0,
+      dueDate: "2026-04-30",
+    },
+    {
+      empNumber: "EMP-20220901",
+      title: "디자인 시스템 v2 구축",
+      description: "모바일 반응형 컴포넌트 라이브러리 완성",
+      progress: 100,
+      status: GoalStatus.COMPLETED,
+      weight: 1.5,
+      dueDate: "2026-03-31",
+    },
+    {
+      empNumber: "EMP-20230201",
+      title: "프론트엔드 성능 최적화",
+      description: "Core Web Vitals 지표 개선 (LCP < 2.5s, FID < 100ms)",
+      progress: 30,
+      status: GoalStatus.IN_PROGRESS,
+      weight: 1.0,
+      dueDate: "2026-06-30",
+    },
+    {
+      empNumber: "EMP-20230601",
+      title: "분기 매출 목표 달성",
+      description: "Q1 매출 목표 1.2억원 달성",
+      progress: 70,
+      status: GoalStatus.IN_PROGRESS,
+      weight: 1.5,
+      dueDate: "2026-03-31",
+    },
+    {
+      empNumber: "EMP-20240101",
+      title: "신규 서비스 기획서 작성",
+      description: "B2B SaaS 신규 기능 기획 및 로드맵 수립",
+      progress: 0,
+      status: GoalStatus.NOT_STARTED,
+      weight: 1.0,
+      dueDate: "2026-06-30",
+    },
+    {
+      empNumber: "EMP-20210301",
+      title: "HR 프로세스 디지털화",
+      description: "수동 HR 프로세스 80% 자동화",
+      progress: 55,
+      status: GoalStatus.IN_PROGRESS,
+      weight: 1.5,
+      dueDate: "2026-06-30",
+    },
+  ];
+
+  for (const def of goalDefs) {
+    const empId = employeeIds[def.empNumber];
+    if (!empId) continue;
+
+    await prisma.goal.create({
+      data: {
+        tenantId: acme.id,
+        employeeId: empId,
+        cycleId: evalCycleH1.id,
+        title: def.title,
+        description: def.description,
+        progress: def.progress,
+        status: def.status,
+        weight: def.weight,
+        dueDate: new Date(def.dueDate),
+      },
+    });
+  }
+
+  // ─── Evaluations (Acme) ─────────────────────────────────
+
+  const evaluationDefs: {
+    empNumber: string;
+    cycleId: string;
+    status: EvaluationStatus;
+    selfScore: number | null;
+    peerScore: number | null;
+    managerScore: number | null;
+    finalScore: number | null;
+    selfComment: string | null;
+    managerComment: string | null;
+  }[] = [
+    // Current cycle (H1 2026) - in-progress evaluations
+    {
+      empNumber: "EMP-20200101",
+      cycleId: evalCycleH1.id,
+      status: EvaluationStatus.MANAGER_REVIEW,
+      selfScore: 4.2,
+      peerScore: 4.0,
+      managerScore: null,
+      finalScore: null,
+      selfComment: "팀 생산성 향상 프로젝트를 성공적으로 진행 중입니다.",
+      managerComment: null,
+    },
+    {
+      empNumber: "EMP-20210601",
+      cycleId: evalCycleH1.id,
+      status: EvaluationStatus.PEER_REVIEW,
+      selfScore: 3.8,
+      peerScore: null,
+      managerScore: null,
+      finalScore: null,
+      selfComment: "CRM 구축 프로젝트 80% 완료",
+      managerComment: null,
+    },
+    {
+      empNumber: "EMP-20220415",
+      cycleId: evalCycleH1.id,
+      status: EvaluationStatus.SELF_REVIEW,
+      selfScore: null,
+      peerScore: null,
+      managerScore: null,
+      finalScore: null,
+      selfComment: null,
+      managerComment: null,
+    },
+    {
+      empNumber: "EMP-20220901",
+      cycleId: evalCycleH1.id,
+      status: EvaluationStatus.COMPLETED,
+      selfScore: 4.5,
+      peerScore: 4.3,
+      managerScore: 4.4,
+      finalScore: 4.4,
+      selfComment: "디자인 시스템 v2를 성공적으로 완성했습니다.",
+      managerComment: "우수한 성과입니다. 특히 반응형 컴포넌트 품질이 탁월합니다.",
+    },
+    {
+      empNumber: "EMP-20230201",
+      cycleId: evalCycleH1.id,
+      status: EvaluationStatus.NOT_STARTED,
+      selfScore: null,
+      peerScore: null,
+      managerScore: null,
+      finalScore: null,
+      selfComment: null,
+      managerComment: null,
+    },
+    // Previous cycle (H2 2025) - all completed
+    {
+      empNumber: "EMP-20200101",
+      cycleId: evalCycleH2_2025.id,
+      status: EvaluationStatus.COMPLETED,
+      selfScore: 4.0,
+      peerScore: 4.1,
+      managerScore: 4.3,
+      finalScore: 4.2,
+      selfComment: "인프라 안정화 프로젝트 완료",
+      managerComment: "리더십과 기술력 모두 우수",
+    },
+    {
+      empNumber: "EMP-20210601",
+      cycleId: evalCycleH2_2025.id,
+      status: EvaluationStatus.COMPLETED,
+      selfScore: 3.5,
+      peerScore: 3.8,
+      managerScore: 3.7,
+      finalScore: 3.7,
+      selfComment: "팀 관리 역량을 키우고 있습니다",
+      managerComment: "성장세가 눈에 띕니다. 계속 발전하기 바랍니다.",
+    },
+  ];
+
+  for (const def of evaluationDefs) {
+    const empId = employeeIds[def.empNumber];
+    if (!empId) continue;
+
+    await prisma.evaluation.upsert({
+      where: {
+        tenantId_employeeId_cycleId: {
+          tenantId: acme.id,
+          employeeId: empId,
+          cycleId: def.cycleId,
+        },
+      },
+      update: {},
+      create: {
+        tenantId: acme.id,
+        employeeId: empId,
+        cycleId: def.cycleId,
+        status: def.status,
+        selfScore: def.selfScore,
+        peerScore: def.peerScore,
+        managerScore: def.managerScore,
+        finalScore: def.finalScore,
+        selfComment: def.selfComment,
+        managerComment: def.managerComment,
+      },
+    });
+  }
+
+  // ─── OneOnOnes (Acme) ──────────────────────────────────
+
+  const oneOnOneDefs: {
+    managerNumber: string;
+    employeeNumber: string;
+    scheduledAt: string;
+    duration: number;
+    status: OneOnOneStatus;
+    agenda: string;
+    notes: string | null;
+  }[] = [
+    {
+      managerNumber: "EMP-20210601",
+      employeeNumber: "EMP-20220415",
+      scheduledAt: "2026-03-14T10:00:00",
+      duration: 30,
+      status: OneOnOneStatus.SCHEDULED,
+      agenda: "API 성능 개선 진행 상황, Q2 목표 설정",
+      notes: null,
+    },
+    {
+      managerNumber: "EMP-20210601",
+      employeeNumber: "EMP-20230201",
+      scheduledAt: "2026-03-14T14:00:00",
+      duration: 30,
+      status: OneOnOneStatus.SCHEDULED,
+      agenda: "프론트엔드 성능 최적화 방향, 커리어 개발",
+      notes: null,
+    },
+    {
+      managerNumber: "EMP-20200101",
+      employeeNumber: "EMP-20210601",
+      scheduledAt: "2026-03-17T11:00:00",
+      duration: 45,
+      status: OneOnOneStatus.SCHEDULED,
+      agenda: "팀 운영 현황, H1 평가 진행 점검, 채용 계획",
+      notes: null,
+    },
+    {
+      managerNumber: "EMP-20200101",
+      employeeNumber: "EMP-20220901",
+      scheduledAt: "2026-03-18T10:00:00",
+      duration: 30,
+      status: OneOnOneStatus.SCHEDULED,
+      agenda: "디자인 시스템 v2 완료 회고, 다음 프로젝트 논의",
+      notes: null,
+    },
+    // Completed 1:1s
+    {
+      managerNumber: "EMP-20210601",
+      employeeNumber: "EMP-20220415",
+      scheduledAt: "2026-03-07T10:00:00",
+      duration: 30,
+      status: OneOnOneStatus.COMPLETED,
+      agenda: "API 성능 개선 중간 점검",
+      notes: "캐싱 전략 도입으로 응답 시간 30% 개선 확인. 나머지 20% 최적화를 위해 DB 인덱스 튜닝 진행 예정.",
+    },
+    {
+      managerNumber: "EMP-20210601",
+      employeeNumber: "EMP-20230201",
+      scheduledAt: "2026-03-07T14:00:00",
+      duration: 30,
+      status: OneOnOneStatus.COMPLETED,
+      agenda: "프론트엔드 코드 리뷰 피드백, 학습 계획",
+      notes: "React 성능 최적화 온라인 과정 수강 권장. 코드 리뷰 품질 향상됨.",
+    },
+    {
+      managerNumber: "EMP-20200101",
+      employeeNumber: "EMP-20210601",
+      scheduledAt: "2026-03-03T11:00:00",
+      duration: 45,
+      status: OneOnOneStatus.COMPLETED,
+      agenda: "Q1 OKR 중간 점검, 팀 이슈",
+      notes: "CRM 프로젝트 일정 내 진행 중. 신규 채용 1명 필요, JD 작성 예정.",
+    },
+    {
+      managerNumber: "EMP-20200101",
+      employeeNumber: "EMP-20210301",
+      scheduledAt: "2026-03-05T15:00:00",
+      duration: 30,
+      status: OneOnOneStatus.COMPLETED,
+      agenda: "HR 디지털화 진행 현황",
+      notes: "전자문서 시스템 도입 완료. 다음 단계로 급여 자동화 검토 중.",
+    },
+  ];
+
+  for (const def of oneOnOneDefs) {
+    const managerId = employeeIds[def.managerNumber];
+    const empId = employeeIds[def.employeeNumber];
+    if (!managerId || !empId) continue;
+
+    await prisma.oneOnOne.create({
+      data: {
+        tenantId: acme.id,
+        managerId,
+        employeeId: empId,
+        scheduledAt: new Date(def.scheduledAt),
+        duration: def.duration,
+        status: def.status,
+        agenda: def.agenda,
+        notes: def.notes,
+      },
+    });
+  }
+
   console.log(
-    "Seed completed: 2 tenants, 9 roles, 7 users, 9 departments, 9 positions, 10 employees, 11 changes, 5 shifts, 8 assignments, 40 attendance records, 4 exceptions, 2 closings, 5 leave policies, 10 leave balances, 6 leave requests, 3 workflows, 10 approval requests, 4 document templates, 8 documents, 3 signatures, 6 payroll rules, 2 payroll runs, 13 payslips",
+    "Seed completed: 2 tenants, 9 roles, 7 users, 9 departments, 9 positions, 10 employees, 11 changes, 5 shifts, 8 assignments, 40 attendance records, 4 exceptions, 2 closings, 5 leave policies, 10 leave balances, 6 leave requests, 3 workflows, 10 approval requests, 4 document templates, 8 documents, 3 signatures, 6 payroll rules, 2 payroll runs, 13 payslips, 2 eval cycles, 10 goals, 7 evaluations, 8 one-on-ones",
   );
 }
 
