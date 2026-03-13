@@ -58,7 +58,7 @@
 ## Phase 6: Workflow (결재)
 
 ### L1: Workflow > L2: DB 스키마 > L3: 결재 데이터 모델
-- [ ] WI-024-feat Workflow DB 스키마 (Workflow, ApprovalRequest, ApprovalStep + 시드) | L1:Workflow > L2:DB > L3:결재모델 | batch:01
+- [x] WI-024-feat Workflow DB 스키마 (Workflow, ApprovalRequest, ApprovalStep + 시드) | L1:Workflow > L2:DB > L3:결재모델 | batch:01
 
 ### L1: Workflow > L2: 대시보드 + 상세 + 빌더 + 이력
 - [x] WI-025-feat 결재 대시보드 (4 KPI, 수신함, 처리통계) | L1:Workflow > L2:대시보드 > L3:KPI | batch:02
