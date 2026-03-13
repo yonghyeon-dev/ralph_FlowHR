@@ -519,9 +519,8 @@ CTXEOF
       skipped=$((skipped + 1))
     else
       log "  [Worker $idx] 머지: $branch"
-      local merge_output
-      merge_output=$(git merge "$branch" --no-edit 2>&1)
-      local merge_rc=$?
+      local merge_output merge_rc=0
+      merge_output=$(git merge "$branch" --no-edit 2>&1) || merge_rc=$?
       if [[ $merge_rc -eq 0 ]]; then
         merged=$((merged + 1))
         # 머지 성공 → 메인 루프가 fix_plan.md 체크 처리
