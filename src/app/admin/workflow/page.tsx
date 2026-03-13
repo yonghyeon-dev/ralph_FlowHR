@@ -15,6 +15,7 @@ import {
   QueueItem,
 } from "@/components/ui";
 import type { QueuePriority } from "@/components/ui";
+import { ApprovalDetailDrawer } from "./ApprovalDetailDrawer";
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ function WorkflowContent() {
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
@@ -146,10 +148,14 @@ function WorkflowContent() {
 
       {/* Tab Content */}
       {activeTab === "dashboard" && (
-        <DashboardTab data={data} loading={loading} />
+        <DashboardTab
+          data={data}
+          loading={loading}
+          onSelectRequest={setSelectedRequestId}
+        />
       )}
       {activeTab === "detail" && (
-        <PlaceholderTab message="결재 상세 드로어 (WI-026)" />
+        <DetailTab onSelectRequest={setSelectedRequestId} />
       )}
       {activeTab === "builder" && (
         <PlaceholderTab message="워크플로우 빌더 (WI-027)" />
@@ -157,6 +163,12 @@ function WorkflowContent() {
       {activeTab === "history" && (
         <PlaceholderTab message="결재 이력 (WI-028)" />
       )}
+
+      {/* Approval Detail Drawer */}
+      <ApprovalDetailDrawer
+        requestId={selectedRequestId}
+        onClose={() => setSelectedRequestId(null)}
+      />
     </div>
   );
 }
@@ -166,9 +178,11 @@ function WorkflowContent() {
 function DashboardTab({
   data,
   loading,
+  onSelectRequest,
 }: {
   data: DashboardData | null;
   loading: boolean;
+  onSelectRequest: (_id: string) => void;
 }) {
   const [filter, setFilter] = useState<InboxFilter>("all");
 
@@ -276,6 +290,7 @@ function DashboardTab({
                       <Button
                         variant={item.priority === "critical" ? "primary" : "secondary"}
                         size="sm"
+                        onClick={() => onSelectRequest(item.id)}
                       >
                         검토
                       </Button>
@@ -324,6 +339,93 @@ function StatRow({ label, value }: { label: string; value: string }) {
       <span className="text-sm text-text-secondary">{label}</span>
       <span className="text-sm font-semibold text-text-primary">{value}</span>
     </div>
+  );
+}
+
+// ─── Detail Tab ─────────────────────────────────────────────
+
+interface RequestListItem {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  requestType: string;
+  requesterName: string;
+  department: string;
+  createdAt: string;
+}
+
+const PRIORITY_LABEL: Record<string, string> = {
+  critical: "긴급",
+  high: "높음",
+  medium: "보통",
+  low: "낮음",
+};
+
+function DetailTab({ onSelectRequest }: { onSelectRequest: (_id: string) => void }) {
+  const [requests, setRequests] = useState<RequestListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/workflow/dashboard")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.inbox) {
+          const items: RequestListItem[] = json.inbox.map((item: InboxItem) => ({
+            id: item.id,
+            title: item.title,
+            status: "PENDING",
+            priority: item.priority,
+            requestType: item.requestType,
+            requesterName: item.title.split(" — ")[1] ?? "",
+            department: item.department,
+            createdAt: "",
+          }));
+          setRequests(items);
+        }
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-sp-12">
+        <span className="text-sm text-text-tertiary">불러오는 중...</span>
+      </div>
+    );
+  }
+
+  if (requests.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-sp-12">
+        <span className="text-sm text-text-tertiary">결재 요청이 없습니다</span>
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>결재 요청 목록</CardTitle>
+      </CardHeader>
+      <CardBody>
+        <QueueList>
+          {requests.map((req) => (
+            <QueueItem
+              key={req.id}
+              priority={req.priority as QueuePriority}
+              title={req.title}
+              meta={`${req.department} · ${PRIORITY_LABEL[req.priority] ?? req.priority}`}
+              action={
+                <Button size="sm" variant="secondary" onClick={() => onSelectRequest(req.id)}>
+                  상세 보기
+                </Button>
+              }
+            />
+          ))}
+        </QueueList>
+      </CardBody>
+    </Card>
   );
 }
 
