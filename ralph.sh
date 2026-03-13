@@ -40,6 +40,10 @@ PROMPT_FILE="${PROMPT_FILE:-.ralph/PROMPT.md}"
 LOG_DIR=".ralph/logs"
 ALLOWED_TOOLS="${ALLOWED_TOOLS:-Edit,Write,Read,Bash,Glob,Grep}"
 
+# Parallel (1 = 순차, 2+ = 병렬 worktree)
+PARALLEL_COUNT=${PARALLEL_COUNT:-1}
+WORKTREE_DIR=".worktrees"
+
 # State
 call_count=0
 loop_count=0
@@ -110,9 +114,22 @@ restore_state() {
   fi
 }
 
+cleanup_worktrees() {
+  if [[ -d "$WORKTREE_DIR" ]]; then
+    for wt in "$WORKTREE_DIR"/worker-*; do
+      [[ -d "$wt" ]] || continue
+      git worktree remove "$wt" --force 2>/dev/null || rm -rf "$wt"
+    done
+    rmdir "$WORKTREE_DIR" 2>/dev/null || true
+    git worktree prune 2>/dev/null || true
+  fi
+}
+
 cleanup() {
   local exit_code=$?
   printf "\n"
+  # Parallel worktree 정리 (잔여물 방지)
+  cleanup_worktrees 2>/dev/null || true
   if [[ $exit_code -ne 0 ]]; then
     log "⚠️ 비정상 종료 (exit code: $exit_code)"
     save_state "crashed"
@@ -216,8 +233,10 @@ validate_post_iteration() {
   local latest_msg
   latest_msg=$(git log -1 --pretty=format:"%s" 2>/dev/null || echo "")
   if [[ -n "$latest_msg" && "$latest_msg" != "$last_commit_msg" ]]; then
-    local pattern="^WI-(feat|fix|docs|style|refactor|test|chore|perf|ci|revert) .+"
-    if [[ ! "$latest_msg" =~ $pattern ]]; then
+    local pattern="^WI-[0-9]{3,4}-(feat|fix|docs|style|refactor|test|chore|perf|ci|revert) .+"
+    local pattern_system="^WI-(chore|docs) .+"
+    local pattern_merge="^Merge "
+    if [[ ! "$latest_msg" =~ $pattern && ! "$latest_msg" =~ $pattern_system && ! "$latest_msg" =~ $pattern_merge ]]; then
       log "VIOLATION: 커밋 메시지 형식 오류 - $latest_msg"
       violations=$((violations + 1))
     fi
@@ -318,6 +337,193 @@ build_context() {
 EOF
 }
 
+#--- Parallel Execution (PARALLEL_COUNT > 1) ---
+
+get_next_n_wis() {
+  local n=${1:-1}
+
+  # 첫 번째 미완료 WI의 batch 태그 확인
+  local first_batch
+  first_batch=$(awk '/^```/{f=!f} !f && /^\- \[ \]/{
+    if (match($0, /batch:[A-Za-z0-9]+/)) print substr($0, RSTART+6, RLENGTH-6)
+    exit
+  }' "$FIX_PLAN" 2>/dev/null)
+
+  if [[ -z "$first_batch" ]]; then
+    # batch 태그 없음 — 순서대로 N개 추출 (기존 동작)
+    awk -v n="$n" '/^```/{f=!f} !f && /^\- \[ \]/{sub(/^\- \[ \] /,""); sub(/ \| L1:.*$/,""); print; c++; if(c>=n) exit}' "$FIX_PLAN" 2>/dev/null
+  else
+    # 같은 batch 내 미완료 WI만 N개 추출
+    awk -v n="$n" -v batch="batch:$first_batch" '
+      /^```/{f=!f}
+      !f && /^\- \[ \]/ && index($0, batch) {
+        sub(/^\- \[ \] /,"")
+        sub(/ \| L1:.*$/,"")
+        print
+        c++
+        if(c>=n) exit
+      }
+    ' "$FIX_PLAN" 2>/dev/null
+  fi
+}
+
+setup_worktree() {
+  local wi_name="$1"
+  local idx="$2"
+  local sanitized
+  sanitized=$(echo "$wi_name" | sed 's/[^a-zA-Z0-9_-]/-/g' | cut -c1-40)
+  local branch_name="parallel/worker-${idx}-${sanitized}"
+  local worktree_path="${WORKTREE_DIR}/worker-${idx}"
+
+  # Clean stale worktree
+  if [[ -d "$worktree_path" ]]; then
+    git worktree remove "$worktree_path" --force 2>/dev/null || rm -rf "$worktree_path"
+  fi
+  git branch -D "$branch_name" 2>/dev/null || true
+
+  git worktree add "$worktree_path" -b "$branch_name" HEAD > /dev/null 2>&1 || {
+    log "ERROR: worktree 생성 실패 - worker-${idx}"
+    return 1
+  }
+
+  # Copy gitignored/untracked files needed by claude
+  for f in .ralphrc; do
+    [[ -f "$f" ]] && cp "$f" "$worktree_path/$f" 2>/dev/null || true
+  done
+  mkdir -p "$worktree_path/$LOG_DIR"
+
+  echo "$worktree_path|$branch_name"
+}
+
+execute_parallel() {
+  local -a wis=()
+  local -a pids=()
+  local -a worktree_info=()
+
+  while IFS= read -r wi; do
+    [[ -n "$wi" ]] && wis+=("$wi")
+  done < <(get_next_n_wis "$PARALLEL_COUNT")
+
+  local wi_count=${#wis[@]}
+  if [[ $wi_count -eq 0 ]]; then
+    return 1
+  fi
+
+  log "🔀 병렬 실행: ${wi_count}개 WI 동시 처리"
+
+  # Setup worktrees and launch claude in each
+  for i in "${!wis[@]}"; do
+    local idx=$((i + 1))
+    local wi="${wis[$i]}"
+    log "  [Worker $idx] $wi"
+
+    local info
+    info=$(setup_worktree "$wi" "$idx") || continue
+    worktree_info+=("$info")
+
+    local wt_path="${info%%|*}"
+
+    # Build parallel context
+    local counts completed unchecked total
+    counts=$(count_tasks)
+    completed="${counts%% *}"
+    unchecked="${counts##* }"
+    total=$((completed + unchecked))
+
+    local context
+    context=$(cat <<CTXEOF
+[Ralph Loop #$loop_count - Worker $idx/$wi_count] Completed: $completed | Remaining: $unchecked
+[TARGET] ${wi}
+[RULE] 위 TARGET 작업 1개만 처리하고 RALPH_STATUS 출력 후 즉시 종료. 다른 WI 절대 금지.
+[PARALLEL MODE] 이미 작업 브랜치에 있음. 별도 브랜치 생성·PR 생성 불필요. 현재 브랜치에서 직접 커밋할 것.
+CTXEOF
+)
+
+    local prompt_content
+    prompt_content=$(cat "$PROMPT_FILE")
+    local logfile="${SCRIPT_DIR}/${LOG_DIR}/claude_parallel_${loop_count}_${idx}.log"
+
+    # Launch in worktree (background)
+    (
+      cd "$wt_path" || exit 1
+      env -u CLAUDECODE claude -p "$prompt_content" \
+        --output-format json \
+        --append-system-prompt "$context" \
+        --allowedTools "$ALLOWED_TOOLS" \
+        > "$logfile" 2>&1
+    ) &
+    pids+=($!)
+    log "  [Worker $idx] PID ${pids[-1]} 시작"
+  done
+
+  if [[ ${#pids[@]} -eq 0 ]]; then
+    log "ERROR: 실행된 워커 없음"
+    return 1
+  fi
+
+  # Wait with progress display
+  log "⏳ ${#pids[@]}개 워커 대기 중..."
+  local elapsed=0
+  local spin=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+  while true; do
+    local running=0
+    for pid in "${pids[@]}"; do
+      kill -0 "$pid" 2>/dev/null && running=$((running + 1))
+    done
+    [[ $running -eq 0 ]] && break
+    local sidx=$((elapsed % 10))
+    printf "\r  ${spin[$sidx]} %dm %02ds | 실행 중: %d/%d  " "$((elapsed/60))" "$((elapsed%60))" "$running" "${#pids[@]}"
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  printf "\r  ✅ 전체 완료 (%dm %02ds)                                    \n" "$((elapsed/60))" "$((elapsed%60))"
+
+  # Sequential merge back to current branch
+  local merged=0 failed=0 skipped=0
+  for i in "${!worktree_info[@]}"; do
+    local info="${worktree_info[$i]}"
+    local wt_path="${info%%|*}"
+    local branch="${info##*|}"
+    local idx=$((i + 1))
+
+    # Check for new commits vs base
+    local wt_sha base_sha
+    wt_sha=$(git -C "$wt_path" rev-parse HEAD 2>/dev/null || echo "none")
+    base_sha=$(git merge-base HEAD "$branch" 2>/dev/null || echo "none")
+
+    if [[ "$wt_sha" == "$base_sha" ]]; then
+      log "  [Worker $idx] 변경 없음 — 스킵"
+      skipped=$((skipped + 1))
+    else
+      log "  [Worker $idx] 머지: $branch"
+      if git merge "$branch" --no-edit 2>/dev/null; then
+        merged=$((merged + 1))
+        log "  [Worker $idx] ✅ 머지 성공"
+      else
+        git merge --abort 2>/dev/null || true
+        failed=$((failed + 1))
+        log "  [Worker $idx] ❌ 머지 충돌 — 롤백"
+      fi
+    fi
+
+    # Cleanup worktree & branch
+    git worktree remove "$wt_path" --force 2>/dev/null || rm -rf "$wt_path"
+    git branch -D "$branch" 2>/dev/null || true
+  done
+
+  git worktree prune 2>/dev/null || true
+  rmdir "$WORKTREE_DIR" 2>/dev/null || true
+
+  log "🔀 병렬 결과: ${merged} 머지, ${failed} 충돌, ${skipped} 스킵"
+  call_count=$((call_count + wi_count))
+
+  # 전부 실패면 에러
+  [[ $failed -eq $wi_count ]] && return 1
+  return 0
+}
+
+#--- Sequential Execution ---
+
 execute_claude() {
   local context="$1"
   local prompt_content
@@ -368,14 +574,14 @@ execute_claude() {
   output=$(cat "$logfile")
 
   # 세션 ID 및 토큰 사용량 추출 (sed 사용 — Git Bash 호환)
-  local new_session_id input_tokens iteration_cost
+  local new_session_id iteration_cost
   new_session_id=$(echo "$output" | sed -n 's/.*"session_id"\s*:\s*"\([^"]*\)".*/\1/p' | head -1)
-  input_tokens=$(echo "$output" | sed -n 's/.*"input_tokens"\s*:\s*\([0-9]*\).*/\1/p' | head -1)
-  local cache_read=$(echo "$output" | sed -n 's/.*"cache_read_input_tokens"\s*:\s*\([0-9]*\).*/\1/p' | head -1)
   iteration_cost=$(echo "$output" | sed -n 's/.*"total_cost_usd"\s*:\s*\([0-9.]*\).*/\1/p' | head -1)
 
-  # 총 토큰 = input + cache_read (실제 컨텍스트 크기)
-  local total_context_tokens=$(( ${input_tokens:-0} + ${cache_read:-0} ))
+  # 컨텍스트 크기 추정: cache_creation_input_tokens = 대화에 추가된 고유 콘텐츠 누적합
+  # (cache_read는 매 턴마다 중복 카운트되므로 컨텍스트 크기로 사용하면 안 됨)
+  local cache_creation=$(echo "$output" | sed -n 's/.*"cache_creation_input_tokens"\s*:\s*\([0-9]*\).*/\1/p' | head -1)
+  local total_context_tokens=${cache_creation:-0}
 
   # 비용 표시: API 키 사용자만 (구독 사용자는 토큰만 표시)
   if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
@@ -423,6 +629,11 @@ main() {
 
   log "=== Ralph Loop Started ==="
   log "Max iterations: $MAX_ITERATIONS | Rate limit: $RATE_LIMIT_PER_HOUR/hr"
+  if [[ $PARALLEL_COUNT -gt 1 ]]; then
+    log "Mode: 병렬 (${PARALLEL_COUNT}x worktree)"
+  else
+    log "Mode: 순차"
+  fi
   log "Allowed tools: $ALLOWED_TOOLS"
 
   last_git_sha=$(git rev-parse HEAD 2>/dev/null || echo "none")
@@ -441,53 +652,74 @@ main() {
       break
     fi
 
-    # 3. 현재 WI 및 진행률 표시
-    local current_wi counts completed unchecked total wi_num
-    current_wi=$(get_current_wi)
-    counts=$(count_tasks)
-    completed="${counts%% *}"
-    unchecked="${counts##* }"
-    total=$((completed + unchecked))
-    wi_num=$((completed + 1))
-    local pct=0
-    if [[ $total -gt 0 ]]; then pct=$((completed * 100 / total)); fi
-    log "📋 WI #$wi_num/$total: $current_wi"
-    log "📊 진행률: $completed/$total ($pct%)"
+    if [[ $PARALLEL_COUNT -gt 1 ]]; then
+      #--- Parallel mode ---
+      local counts completed unchecked total pct
+      counts=$(count_tasks)
+      completed="${counts%% *}"
+      unchecked="${counts##* }"
+      total=$((completed + unchecked))
+      pct=0; [[ $total -gt 0 ]] && pct=$((completed * 100 / total))
+      log "📊 진행률: $completed/$total ($pct%) — 병렬 ${PARALLEL_COUNT}x 실행"
 
-    # 4. Rate limit
-    check_rate_limit
+      check_rate_limit
 
-    # 5. Execute
-    local context
-    context=$(build_context)
+      execute_parallel
+      local result=$?
 
-    execute_claude "$context"
-    local result=$?
+      validate_post_iteration || {
+        log "Post-validation failed - check guardrails.md"
+      }
+      check_progress || break
+      save_state "running"
 
-    # 6. Post-iteration validation
-    validate_post_iteration || {
-      log "Post-validation failed - check guardrails.md"
-    }
+      if [[ $result -ne 0 ]]; then
+        sleep "$ERROR_COOLDOWN_SEC"
+      else
+        sleep "$COOLDOWN_SEC"
+      fi
+    else
+      #--- Sequential mode (기존 로직) ---
+      local current_wi counts completed unchecked total wi_num
+      current_wi=$(get_current_wi)
+      counts=$(count_tasks)
+      completed="${counts%% *}"
+      unchecked="${counts##* }"
+      total=$((completed + unchecked))
+      wi_num=$((completed + 1))
+      local pct=0
+      if [[ $total -gt 0 ]]; then pct=$((completed * 100 / total)); fi
+      log "📋 WI #$wi_num/$total: $current_wi"
+      log "📊 진행률: $completed/$total ($pct%)"
 
-    # 7. Progress check (circuit breaker) — execute 이후에 체크해야 함
-    check_progress || break
+      check_rate_limit
 
-    # 8. 상태 저장 (매 반복마다 — 비정상 종료 대비)
-    save_state "running"
+      local context
+      context=$(build_context)
 
-    case $result in
-      0) sleep "$COOLDOWN_SEC" ;;
-      1) sleep "$ERROR_COOLDOWN_SEC" ;;
-      2) # Exit signal
-         if check_all_done; then
-           log "Exit signal confirmed - all tasks done"
-           break
-         else
-           log "Exit signal but tasks remain - continuing"
-           sleep "$COOLDOWN_SEC"
-         fi
-         ;;
-    esac
+      execute_claude "$context"
+      local result=$?
+
+      validate_post_iteration || {
+        log "Post-validation failed - check guardrails.md"
+      }
+      check_progress || break
+      save_state "running"
+
+      case $result in
+        0) sleep "$COOLDOWN_SEC" ;;
+        1) sleep "$ERROR_COOLDOWN_SEC" ;;
+        2) # Exit signal
+           if check_all_done; then
+             log "Exit signal confirmed - all tasks done"
+             break
+           else
+             log "Exit signal but tasks remain - continuing"
+             sleep "$COOLDOWN_SEC"
+           fi
+           ;;
+      esac
+    fi
   done
 
   # 종료 이유에 따른 상태 저장

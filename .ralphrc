@@ -1,3 +1,6 @@
 # Ralph Configuration - FlowHR
 PROJECT_NAME="ralph_FlowHR"
 PROJECT_TYPE="typescript"
+
+# 병렬 실행 (2 = 2개 WI 동시 처리)
+PARALLEL_COUNT=2
