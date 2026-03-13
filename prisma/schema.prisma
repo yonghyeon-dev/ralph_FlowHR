@@ -102,6 +102,28 @@ enum LeaveRequestStatus {
   CANCELLED
 }
 
+enum WorkflowStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+}
+
+enum ApprovalRequestStatus {
+  PENDING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  CANCELLED
+  ESCALATED
+}
+
+enum RequestPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
 // ─── Tenant ───────────────────────────────────────────────
 
 model Tenant {
@@ -128,6 +150,9 @@ model Tenant {
   leavePolicies        LeavePolicy[]
   leaveBalances        LeaveBalance[]
   leaveRequests        LeaveRequest[]
+  workflows            Workflow[]
+  approvalRequests     ApprovalRequest[]
+  approvalSteps        ApprovalStep[]
 }
 
 // ─── Role ─────────────────────────────────────────────────
@@ -294,6 +319,8 @@ model Employee {
   attendanceExceptions AttendanceException[]
   leaveBalances        LeaveBalance[]
   leaveRequests        LeaveRequest[]
+  approvalRequests       ApprovalRequest[] @relation("ApprovalRequester")
+  approvalStepsAssigned  ApprovalStep[]    @relation("ApprovalStepApprover")
 
   @@unique([tenantId, employeeNumber])
 }
@@ -495,4 +522,70 @@ model LeaveRequest {
   tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   policy   LeavePolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+}
+
+// ─── Workflow ──────────────────────────────────────────────
+
+model Workflow {
+  id          String         @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  triggerType String
+  status      WorkflowStatus @default(ACTIVE)
+  steps       Json           @default("[]")
+  conditions  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  approvalRequests ApprovalRequest[]
+
+  @@unique([tenantId, name])
+}
+
+// ─── ApprovalRequest ──────────────────────────────────────
+
+model ApprovalRequest {
+  id          String                @id @default(cuid())
+  tenantId    String
+  workflowId  String
+  requesterId String
+  title       String
+  description String?
+  status      ApprovalRequestStatus @default(PENDING)
+  priority    RequestPriority       @default(MEDIUM)
+  requestType String
+  data        Json?
+  escalatedAt DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workflow  Workflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  requester Employee       @relation("ApprovalRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  steps     ApprovalStep[]
+}
+
+// ─── ApprovalStep ─────────────────────────────────────────
+
+model ApprovalStep {
+  id        String                @id @default(cuid())
+  tenantId  String
+  requestId String
+  stepOrder Int
+  approverId String
+  status    ApprovalRequestStatus @default(PENDING)
+  comment   String?
+  actionAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  request  ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approver Employee        @relation("ApprovalStepApprover", fields: [approverId], references: [id], onDelete: Cascade)
 }

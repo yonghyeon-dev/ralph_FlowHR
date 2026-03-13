@@ -13,6 +13,9 @@ import {
   ClosingStatus,
   LeaveType,
   LeaveRequestStatus,
+  WorkflowStatus,
+  ApprovalRequestStatus,
+  RequestPriority,
 } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -896,8 +899,294 @@ async function main(): Promise<void> {
     });
   }
 
+  // ─── Workflows (Acme) ──────────────────────────────────────
+
+  const workflowDefs = [
+    {
+      name: "연차 승인",
+      description: "연차/반차 휴가 요청 결재 프로세스",
+      triggerType: "LEAVE",
+      status: WorkflowStatus.ACTIVE,
+      steps: [
+        { order: 1, role: "SELF", label: "본인 신청" },
+        { order: 2, role: "MANAGER", label: "팀장 승인" },
+        { order: 3, role: "HR", label: "HR 검토" },
+      ],
+    },
+    {
+      name: "경비 정산",
+      description: "출장비, 교육비 등 경비 정산 결재",
+      triggerType: "EXPENSE",
+      status: WorkflowStatus.ACTIVE,
+      steps: [
+        { order: 1, role: "SELF", label: "본인 신청" },
+        { order: 2, role: "MANAGER", label: "팀장 승인" },
+        { order: 3, role: "FINANCE", label: "재무 승인" },
+      ],
+    },
+    {
+      name: "초과근무 사전 승인",
+      description: "초과근무 사전 승인 프로세스 (조건 분기 포함)",
+      triggerType: "OVERTIME",
+      status: WorkflowStatus.ACTIVE,
+      steps: [
+        { order: 1, role: "SELF", label: "본인 신청" },
+        { order: 2, role: "MANAGER", label: "팀장 승인" },
+        { order: 3, role: "HR", label: "HR 검토" },
+        { order: 4, role: "HR_HEAD", label: "최종 승인" },
+      ],
+      conditions: [
+        { condition: "weeklyHours <= 40", action: "AUTO_APPROVE" },
+        { condition: "40 < weeklyHours <= 48", action: "SKIP_TO_STEP_2" },
+        { condition: "weeklyHours > 48", action: "FULL_CHAIN" },
+      ],
+    },
+  ];
+
+  const workflowIds: Record<string, string> = {};
+  for (const def of workflowDefs) {
+    const wf = await prisma.workflow.upsert({
+      where: { tenantId_name: { tenantId: acme.id, name: def.name } },
+      update: {},
+      create: {
+        tenantId: acme.id,
+        name: def.name,
+        description: def.description,
+        triggerType: def.triggerType,
+        status: def.status,
+        steps: def.steps,
+        conditions: def.conditions ?? undefined,
+      },
+    });
+    workflowIds[def.name] = wf.id;
+  }
+
+  // ─── Approval Requests (Acme) ─────────────────────────────
+
+  const approvalRequestDefs: {
+    workflowName: string;
+    requesterNumber: string;
+    title: string;
+    description: string;
+    status: ApprovalRequestStatus;
+    priority: RequestPriority;
+    requestType: string;
+    data: Record<string, string | number>;
+    escalatedAt?: Date;
+    completedAt?: Date;
+    createdAtOffset: number;
+    steps: {
+      stepOrder: number;
+      approverNumber: string;
+      status: ApprovalRequestStatus;
+      comment?: string;
+      actionAt?: Date;
+    }[];
+  }[] = [
+    {
+      workflowName: "초과근무 사전 승인",
+      requesterNumber: "EMP-20220415",
+      title: "초과근무 사전 승인 — 최직원",
+      description: "긴급 서버 마이그레이션 작업",
+      status: ApprovalRequestStatus.IN_PROGRESS,
+      priority: RequestPriority.CRITICAL,
+      requestType: "OVERTIME",
+      data: { scheduledDate: "2026-03-13", hours: 4, reason: "긴급 서버 마이그레이션 작업" },
+      createdAtOffset: -1,
+      steps: [
+        { stepOrder: 1, approverNumber: "EMP-20220415", status: ApprovalRequestStatus.APPROVED, comment: "신청", actionAt: new Date("2026-03-12T10:30:00") },
+        { stepOrder: 2, approverNumber: "EMP-20210601", status: ApprovalRequestStatus.APPROVED, comment: "승인합니다", actionAt: new Date("2026-03-12T14:00:00") },
+        { stepOrder: 3, approverNumber: "EMP-20210301", status: ApprovalRequestStatus.PENDING },
+        { stepOrder: 4, approverNumber: "EMP-20200101", status: ApprovalRequestStatus.PENDING },
+      ],
+    },
+    {
+      workflowName: "연차 승인",
+      requesterNumber: "EMP-20230201",
+      title: "연차 신청 — 한프론트",
+      description: "3/17~18 (2일) 개인 사유",
+      status: ApprovalRequestStatus.PENDING,
+      priority: RequestPriority.HIGH,
+      requestType: "LEAVE",
+      data: { startDate: "2026-03-17", endDate: "2026-03-18", days: 2 },
+      createdAtOffset: -3,
+      steps: [
+        { stepOrder: 1, approverNumber: "EMP-20230201", status: ApprovalRequestStatus.APPROVED, actionAt: new Date("2026-03-10T09:00:00") },
+        { stepOrder: 2, approverNumber: "EMP-20210601", status: ApprovalRequestStatus.PENDING },
+        { stepOrder: 3, approverNumber: "EMP-20210301", status: ApprovalRequestStatus.PENDING },
+      ],
+    },
+    {
+      workflowName: "경비 정산",
+      requesterNumber: "EMP-20230601",
+      title: "경비 정산 — 윤영업",
+      description: "출장 경비 ₩1,240,000",
+      status: ApprovalRequestStatus.PENDING,
+      priority: RequestPriority.HIGH,
+      requestType: "EXPENSE",
+      data: { amount: 1240000, category: "출장 경비", description: "고객사 미팅 출장비" },
+      createdAtOffset: -2,
+      steps: [
+        { stepOrder: 1, approverNumber: "EMP-20230601", status: ApprovalRequestStatus.APPROVED, actionAt: new Date("2026-03-11T11:00:00") },
+        { stepOrder: 2, approverNumber: "EMP-20200101", status: ApprovalRequestStatus.PENDING },
+        { stepOrder: 3, approverNumber: "EMP-20210301", status: ApprovalRequestStatus.PENDING },
+      ],
+    },
+    {
+      workflowName: "연차 승인",
+      requesterNumber: "EMP-20240101",
+      title: "연봉 변경 통지 — 조기획",
+      description: "승진에 따른 연봉 조정",
+      status: ApprovalRequestStatus.PENDING,
+      priority: RequestPriority.MEDIUM,
+      requestType: "SALARY_CHANGE",
+      data: { reason: "승진에 따른 연봉 조정", department: "HR" },
+      createdAtOffset: -4,
+      steps: [
+        { stepOrder: 1, approverNumber: "EMP-20240101", status: ApprovalRequestStatus.APPROVED, actionAt: new Date("2026-03-09T10:00:00") },
+        { stepOrder: 2, approverNumber: "EMP-20210301", status: ApprovalRequestStatus.PENDING },
+      ],
+    },
+    {
+      workflowName: "경비 정산",
+      requesterNumber: "EMP-20220901",
+      title: "교육 수강 신청 — 정시니어 외 2명",
+      description: "AWS 자격증 과정 비용 승인",
+      status: ApprovalRequestStatus.PENDING,
+      priority: RequestPriority.LOW,
+      requestType: "EXPENSE",
+      data: { amount: 890000, category: "교육비", description: "AWS 자격증 과정" },
+      createdAtOffset: -5,
+      steps: [
+        { stepOrder: 1, approverNumber: "EMP-20220901", status: ApprovalRequestStatus.APPROVED, actionAt: new Date("2026-03-08T09:30:00") },
+        { stepOrder: 2, approverNumber: "EMP-20200101", status: ApprovalRequestStatus.PENDING },
+      ],
+    },
+    // Completed requests (this week)
+    {
+      workflowName: "연차 승인",
+      requesterNumber: "EMP-20210601",
+      title: "연차 신청 — 박팀장",
+      description: "가족 행사",
+      status: ApprovalRequestStatus.APPROVED,
+      priority: RequestPriority.MEDIUM,
+      requestType: "LEAVE",
+      data: { startDate: "2026-03-14", endDate: "2026-03-14", days: 1 },
+      createdAtOffset: -5,
+      completedAt: new Date("2026-03-09"),
+      steps: [
+        { stepOrder: 1, approverNumber: "EMP-20210601", status: ApprovalRequestStatus.APPROVED, actionAt: new Date("2026-03-08T09:00:00") },
+        { stepOrder: 2, approverNumber: "EMP-20200101", status: ApprovalRequestStatus.APPROVED, comment: "승인", actionAt: new Date("2026-03-09T10:00:00") },
+      ],
+    },
+    {
+      workflowName: "경비 정산",
+      requesterNumber: "EMP-20220415",
+      title: "경비 정산 — 최직원",
+      description: "택시비 정산",
+      status: ApprovalRequestStatus.APPROVED,
+      priority: RequestPriority.LOW,
+      requestType: "EXPENSE",
+      data: { amount: 45000, category: "교통비" },
+      createdAtOffset: -4,
+      completedAt: new Date("2026-03-10"),
+      steps: [
+        { stepOrder: 1, approverNumber: "EMP-20220415", status: ApprovalRequestStatus.APPROVED, actionAt: new Date("2026-03-09T08:00:00") },
+        { stepOrder: 2, approverNumber: "EMP-20210601", status: ApprovalRequestStatus.APPROVED, comment: "확인", actionAt: new Date("2026-03-10T11:00:00") },
+      ],
+    },
+    {
+      workflowName: "초과근무 사전 승인",
+      requesterNumber: "EMP-20230201",
+      title: "초과근무 — 한프론트",
+      description: "릴리즈 배포",
+      status: ApprovalRequestStatus.APPROVED,
+      priority: RequestPriority.MEDIUM,
+      requestType: "OVERTIME",
+      data: { hours: 2 },
+      createdAtOffset: -6,
+      completedAt: new Date("2026-03-08"),
+      steps: [
+        { stepOrder: 1, approverNumber: "EMP-20230201", status: ApprovalRequestStatus.APPROVED, actionAt: new Date("2026-03-07T14:00:00") },
+        { stepOrder: 2, approverNumber: "EMP-20210601", status: ApprovalRequestStatus.APPROVED, actionAt: new Date("2026-03-08T09:00:00") },
+      ],
+    },
+    {
+      workflowName: "연차 승인",
+      requesterNumber: "EMP-20220901",
+      title: "반차 신청 — 정시니어",
+      description: "병원 방문",
+      status: ApprovalRequestStatus.REJECTED,
+      priority: RequestPriority.LOW,
+      requestType: "LEAVE",
+      data: { days: 0.5 },
+      createdAtOffset: -7,
+      completedAt: new Date("2026-03-07"),
+      steps: [
+        { stepOrder: 1, approverNumber: "EMP-20220901", status: ApprovalRequestStatus.APPROVED, actionAt: new Date("2026-03-06T10:00:00") },
+        { stepOrder: 2, approverNumber: "EMP-20200101", status: ApprovalRequestStatus.REJECTED, comment: "프로젝트 마감 기간", actionAt: new Date("2026-03-07T15:00:00") },
+      ],
+    },
+    // Escalated request
+    {
+      workflowName: "경비 정산",
+      requesterNumber: "EMP-20240101",
+      title: "출장비 정산 — 조기획",
+      description: "해외 출장비 $2,500",
+      status: ApprovalRequestStatus.ESCALATED,
+      priority: RequestPriority.HIGH,
+      requestType: "EXPENSE",
+      data: { amount: 3250000, category: "해외 출장비" },
+      createdAtOffset: -6,
+      escalatedAt: new Date("2026-03-10"),
+      steps: [
+        { stepOrder: 1, approverNumber: "EMP-20240101", status: ApprovalRequestStatus.APPROVED, actionAt: new Date("2026-03-07T09:00:00") },
+        { stepOrder: 2, approverNumber: "EMP-20200101", status: ApprovalRequestStatus.ESCALATED, comment: "금액이 커서 상위 결재 필요", actionAt: new Date("2026-03-10T10:00:00") },
+      ],
+    },
+  ];
+
+  for (const def of approvalRequestDefs) {
+    const wfId = workflowIds[def.workflowName];
+    const requesterId = employeeIds[def.requesterNumber];
+    const createdAt = new Date();
+    createdAt.setDate(createdAt.getDate() + def.createdAtOffset);
+
+    const request = await prisma.approvalRequest.create({
+      data: {
+        tenantId: acme.id,
+        workflowId: wfId,
+        requesterId,
+        title: def.title,
+        description: def.description,
+        status: def.status,
+        priority: def.priority,
+        requestType: def.requestType,
+        data: def.data,
+        escalatedAt: def.escalatedAt,
+        completedAt: def.completedAt,
+        createdAt,
+      },
+    });
+
+    for (const step of def.steps) {
+      const approverId = employeeIds[step.approverNumber];
+      await prisma.approvalStep.create({
+        data: {
+          tenantId: acme.id,
+          requestId: request.id,
+          stepOrder: step.stepOrder,
+          approverId,
+          status: step.status,
+          comment: step.comment,
+          actionAt: step.actionAt,
+        },
+      });
+    }
+  }
+
   console.log(
-    "Seed completed: 2 tenants, 9 roles, 7 users, 9 departments, 9 positions, 10 employees, 11 changes, 5 shifts, 8 assignments, 40 attendance records, 4 exceptions, 2 closings, 5 leave policies, 10 leave balances, 6 leave requests",
+    "Seed completed: 2 tenants, 9 roles, 7 users, 9 departments, 9 positions, 10 employees, 11 changes, 5 shifts, 8 assignments, 40 attendance records, 4 exceptions, 2 closings, 5 leave policies, 10 leave balances, 6 leave requests, 3 workflows, 10 approval requests",
   );
 }
 
