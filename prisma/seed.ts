@@ -18,6 +18,9 @@ import {
   RequestPriority,
   DocumentTemplateCategory,
   DocumentStatus,
+  PayrollRuleType,
+  PayrollRunStatus,
+  PayslipStatus,
 } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -1427,8 +1430,186 @@ async function main(): Promise<void> {
     });
   }
 
+  // ─── Payroll Rules (6 rules) ────────────────────────────────
+
+  const payrollRuleDefs: {
+    name: string;
+    type: PayrollRuleType;
+    description: string;
+    formula: string;
+    rate: number | null;
+    sortOrder: number;
+  }[] = [
+    {
+      name: "기본급",
+      type: PayrollRuleType.FIXED,
+      description: "연봉을 12개월로 나눈 월 기본급",
+      formula: "연봉 / 12",
+      rate: null,
+      sortOrder: 1,
+    },
+    {
+      name: "초과근무 수당",
+      type: PayrollRuleType.VARIABLE,
+      description: "통상시급의 1.5배로 초과근무 시간에 대해 지급",
+      formula: "통상시급 × 1.5 × 초과시간",
+      rate: 1.5,
+      sortOrder: 2,
+    },
+    {
+      name: "야간근무 수당",
+      type: PayrollRuleType.VARIABLE,
+      description: "22:00~06:00 야간근무 시간에 대해 통상시급의 0.5배 추가 지급",
+      formula: "통상시급 × 0.5 × 야간시간",
+      rate: 0.5,
+      sortOrder: 3,
+    },
+    {
+      name: "국민연금",
+      type: PayrollRuleType.DEDUCTION,
+      description: "기준소득월액의 4.5%를 공제",
+      formula: "기준소득월액 × 4.5%",
+      rate: 0.045,
+      sortOrder: 4,
+    },
+    {
+      name: "건강보험",
+      type: PayrollRuleType.DEDUCTION,
+      description: "보수월액의 3.545%를 공제",
+      formula: "보수월액 × 3.545%",
+      rate: 0.03545,
+      sortOrder: 5,
+    },
+    {
+      name: "소득세",
+      type: PayrollRuleType.DEDUCTION,
+      description: "간이세액표 기준 원천징수",
+      formula: "간이세액표 기준",
+      rate: null,
+      sortOrder: 6,
+    },
+  ];
+
+  for (const def of payrollRuleDefs) {
+    await prisma.payrollRule.upsert({
+      where: { tenantId_name: { tenantId: acme.id, name: def.name } },
+      update: {},
+      create: {
+        tenantId: acme.id,
+        name: def.name,
+        type: def.type,
+        description: def.description,
+        formula: def.formula,
+        rate: def.rate,
+        sortOrder: def.sortOrder,
+      },
+    });
+  }
+
+  // ─── Payroll Run (2 runs: Feb closed, Mar in-progress) ────────
+
+  const payrollRunFeb = await prisma.payrollRun.upsert({
+    where: { tenantId_year_month: { tenantId: acme.id, year: 2026, month: 2 } },
+    update: {},
+    create: {
+      tenantId: acme.id,
+      year: 2026,
+      month: 2,
+      status: PayrollRunStatus.CONFIRMED,
+      currentStep: 5,
+      totalEmployees: 8,
+      totalAmount: 31200000,
+      confirmedAt: new Date("2026-02-25"),
+    },
+  });
+
+  const payrollRunMar = await prisma.payrollRun.upsert({
+    where: { tenantId_year_month: { tenantId: acme.id, year: 2026, month: 3 } },
+    update: {},
+    create: {
+      tenantId: acme.id,
+      year: 2026,
+      month: 3,
+      status: PayrollRunStatus.CALCULATION,
+      currentStep: 3,
+      totalEmployees: 8,
+      totalAmount: 0,
+    },
+  });
+
+  // ─── Payslips (Feb confirmed payslips for active employees) ────
+
+  const payslipDefs: {
+    empNumber: string;
+    baseSalary: number;
+    allowances: number;
+    deductions: number;
+    netAmount: number;
+    status: PayslipStatus;
+    sentAt: string | null;
+  }[] = [
+    { empNumber: "EMP-20200101", baseSalary: 4166667, allowances: 320000, deductions: 845200, netAmount: 3641467, status: PayslipStatus.SENT, sentAt: "2026-02-25" },
+    { empNumber: "EMP-20210301", baseSalary: 4583333, allowances: 680000, deductions: 1012400, netAmount: 4250933, status: PayslipStatus.SENT, sentAt: "2026-02-25" },
+    { empNumber: "EMP-20210601", baseSalary: 3750000, allowances: 150000, deductions: 734800, netAmount: 3165200, status: PayslipStatus.SENT, sentAt: "2026-02-25" },
+    { empNumber: "EMP-20220415", baseSalary: 4000000, allowances: 200000, deductions: 789600, netAmount: 3410400, status: PayslipStatus.SENT, sentAt: "2026-02-25" },
+    { empNumber: "EMP-20220901", baseSalary: 5000000, allowances: 250000, deductions: 1047500, netAmount: 4202500, status: PayslipStatus.SENT, sentAt: "2026-02-25" },
+    { empNumber: "EMP-20230201", baseSalary: 3333333, allowances: 100000, deductions: 646000, netAmount: 2787333, status: PayslipStatus.SENT, sentAt: "2026-02-25" },
+    { empNumber: "EMP-20230601", baseSalary: 2916667, allowances: 80000, deductions: 564250, netAmount: 2432417, status: PayslipStatus.SENT, sentAt: "2026-02-25" },
+    { empNumber: "EMP-20240101", baseSalary: 2500000, allowances: 50000, deductions: 480000, netAmount: 2070000, status: PayslipStatus.SENT, sentAt: "2026-02-25" },
+  ];
+
+  for (const def of payslipDefs) {
+    const empId = employeeIds[def.empNumber];
+    if (!empId) continue;
+
+    await prisma.payslip.upsert({
+      where: { payrollRunId_employeeId: { payrollRunId: payrollRunFeb.id, employeeId: empId } },
+      update: {},
+      create: {
+        tenantId: acme.id,
+        payrollRunId: payrollRunFeb.id,
+        employeeId: empId,
+        baseSalary: def.baseSalary,
+        allowances: def.allowances,
+        deductions: def.deductions,
+        netAmount: def.netAmount,
+        breakdown: {
+          baseSalary: def.baseSalary,
+          overtimePay: def.allowances * 0.6,
+          nightShiftPay: def.allowances * 0.4,
+          nationalPension: def.deductions * 0.25,
+          healthInsurance: def.deductions * 0.2,
+          incomeTax: def.deductions * 0.55,
+        },
+        status: def.status,
+        sentAt: def.sentAt ? new Date(def.sentAt) : undefined,
+      },
+    });
+  }
+
+  // Mar draft payslips (empty, waiting for calculation)
+  for (const def of payslipDefs.slice(0, 5)) {
+    const empId = employeeIds[def.empNumber];
+    if (!empId) continue;
+
+    await prisma.payslip.upsert({
+      where: { payrollRunId_employeeId: { payrollRunId: payrollRunMar.id, employeeId: empId } },
+      update: {},
+      create: {
+        tenantId: acme.id,
+        payrollRunId: payrollRunMar.id,
+        employeeId: empId,
+        baseSalary: def.baseSalary,
+        allowances: 0,
+        deductions: 0,
+        netAmount: 0,
+        status: PayslipStatus.DRAFT,
+      },
+    });
+  }
+
   console.log(
-    "Seed completed: 2 tenants, 9 roles, 7 users, 9 departments, 9 positions, 10 employees, 11 changes, 5 shifts, 8 assignments, 40 attendance records, 4 exceptions, 2 closings, 5 leave policies, 10 leave balances, 6 leave requests, 3 workflows, 10 approval requests, 4 document templates, 8 documents, 3 signatures",
+    "Seed completed: 2 tenants, 9 roles, 7 users, 9 departments, 9 positions, 10 employees, 11 changes, 5 shifts, 8 assignments, 40 attendance records, 4 exceptions, 2 closings, 5 leave policies, 10 leave balances, 6 leave requests, 3 workflows, 10 approval requests, 4 document templates, 8 documents, 3 signatures, 6 payroll rules, 2 payroll runs, 13 payslips",
   );
 }
 

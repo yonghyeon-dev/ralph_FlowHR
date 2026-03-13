@@ -140,6 +140,29 @@ enum RequestPriority {
   LOW
 }
 
+enum PayrollRuleType {
+  FIXED
+  VARIABLE
+  DEDUCTION
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  DATA_COLLECTION
+  CHANGE_REVIEW
+  CALCULATION
+  REVIEW
+  CONFIRMED
+  CANCELLED
+}
+
+enum PayslipStatus {
+  DRAFT
+  CONFIRMED
+  SENT
+  REISSUE_REQUESTED
+}
+
 // ─── Tenant ───────────────────────────────────────────────
 
 model Tenant {
@@ -172,6 +195,9 @@ model Tenant {
   documentTemplates    DocumentTemplate[]
   documents            Document[]
   signatures           Signature[]
+  payrollRules         PayrollRule[]
+  payrollRuns          PayrollRun[]
+  payslips             Payslip[]
 }
 
 // ─── Role ─────────────────────────────────────────────────
@@ -343,6 +369,7 @@ model Employee {
   sentDocuments          Document[]        @relation("DocumentSender")
   receivedDocuments      Document[]        @relation("DocumentRecipient")
   signatures             Signature[]
+  payslips               Payslip[]
 
   @@unique([tenantId, employeeNumber])
 }
@@ -680,4 +707,74 @@ model Signature {
   signer   Employee @relation(fields: [signerId], references: [id], onDelete: Cascade)
 
   @@unique([documentId, signerId])
+}
+
+// ─── PayrollRule ───────────────────────────────────────
+
+model PayrollRule {
+  id          String          @id @default(cuid())
+  tenantId    String
+  name        String
+  type        PayrollRuleType
+  description String?
+  formula     String
+  rate        Float?
+  isActive    Boolean         @default(true)
+  sortOrder   Int             @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name])
+}
+
+// ─── PayrollRun ───────────────────────────────────────
+
+model PayrollRun {
+  id              String           @id @default(cuid())
+  tenantId        String
+  year            Int
+  month           Int
+  status          PayrollRunStatus @default(DRAFT)
+  currentStep     Int              @default(1)
+  totalEmployees  Int              @default(0)
+  totalAmount     Float            @default(0)
+  confirmedBy     String?
+  confirmedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payslips Payslip[]
+
+  @@unique([tenantId, year, month])
+}
+
+// ─── Payslip ──────────────────────────────────────────
+
+model Payslip {
+  id            String        @id @default(cuid())
+  tenantId      String
+  payrollRunId  String
+  employeeId    String
+  baseSalary    Float
+  allowances    Float         @default(0)
+  deductions    Float         @default(0)
+  netAmount     Float
+  breakdown     Json          @default("{}")
+  status        PayslipStatus @default(DRAFT)
+  sentAt        DateTime?
+  viewedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee   Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([payrollRunId, employeeId])
 }
