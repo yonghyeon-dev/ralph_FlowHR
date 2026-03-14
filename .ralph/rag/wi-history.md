@@ -1,3 +1,4 @@
 - [x] WI-053-feat 예약 리포트 (5개 스케줄 CRUD) | no-commit
 - [x] WI-055-feat 역할 관리 (6역할 테이블, CRUD) | no-commit
 - [x] WI-061-feat 출퇴근 체크 + 주간 스케줄 (출퇴근 패널, 주간 테이블) | src/app/employee/layout.tsx,src/app/employee/schedule/page.tsx
+- [x] WI-062-feat 출결 이력 (최근 10건 테이블, 페이지네이션) | .gitignore,.ralph/loop_state.json,.ralph/rag/patterns.md,ralph.sh,src/app/employee/schedule/page.tsx
