@@ -137,8 +137,8 @@
 
 ### L1: Employee > L2: 홈 + 스케줄 + 신청 + 수신함 + 문서 + 프로필
 - [x] WI-060-feat 직원 홈 (근무상태 히어로, 퀵액션, 미니캘린더, 할일, 요약통계, 모바일) | L1:Employee > L2:홈 > L3:대시보드 | batch:20
-- [ ] WI-061-feat 출퇴근 체크 + 주간 스케줄 (출퇴근 패널, 주간 테이블) | L1:Employee > L2:스케줄 > L3:출퇴근 | batch:21
-- [ ] WI-062-feat 출결 이력 (최근 10건 테이블, 페이지네이션) | L1:Employee > L2:스케줄 > L3:이력 | batch:22
+- [x] WI-061-feat 출퇴근 체크 + 주간 스케줄 (출퇴근 패널, 주간 테이블) | L1:Employee > L2:스케줄 > L3:출퇴근 | batch:21
+- [x] WI-062-feat 출결 이력 (최근 10건 테이블, 페이지네이션) | L1:Employee > L2:스케줄 > L3:이력 | batch:22
 - [ ] WI-063-feat 신청 유형 그리드 + 휴가 신청 폼 (7유형 카드, 3단계 폼) | L1:Employee > L2:신청 > L3:휴가폼 | batch:23
 - [ ] WI-064-feat 근태 정정 폼 + 신청 이력 (정정폼, 이력 테이블) | L1:Employee > L2:신청 > L3:정정이력 | batch:24
 - [ ] WI-065-feat 알림 수신함 (5탭, 8알림, 미읽음, 상세 드로어) | L1:Employee > L2:수신함 > L3:알림 | batch:25
@@ -148,7 +148,7 @@
 ## Phase 15: Platform Console (플랫폼 운영)
 
 ### L1: Platform > L2: DB + 대시보드 + 테넌트 + 빌링 + 기타
-- [ ] WI-068-feat Platform DB 스키마 (Plan, BillingAccount, Invoice, SupportTicket, AuditLog + 시드) | L1:Platform > L2:DB > L3:플랫폼모델 | batch:22
+- [x] WI-068-feat Platform DB 스키마 (Plan, BillingAccount, Invoice, SupportTicket, AuditLog + 시드) | L1:Platform > L2:DB > L3:플랫폼모델 | batch:22
 - [ ] WI-069-feat 플랫폼 대시보드 (4 KPI, 운영큐, 헬스, 테넌트변경, 보안시그널) | L1:Platform > L2:대시보드 > L3:운영 | batch:23
 - [ ] WI-070-feat 테넌트 관리 (필터, 테이블, 상세 드로어) | L1:Platform > L2:테넌트 > L3:관리 | batch:24
 - [ ] WI-071-feat 플랜 & 빌링 (4 KPI, 플랜카탈로그, 결제계정, 인보이스) | L1:Platform > L2:빌링 > L3:플랜 | batch:25
