@@ -139,31 +139,31 @@
 - [x] WI-060-feat 직원 홈 (근무상태 히어로, 퀵액션, 미니캘린더, 할일, 요약통계, 모바일) | L1:Employee > L2:홈 > L3:대시보드 | batch:20
 - [x] WI-061-feat 출퇴근 체크 + 주간 스케줄 (출퇴근 패널, 주간 테이블) | L1:Employee > L2:스케줄 > L3:출퇴근 | batch:21
 - [x] WI-062-feat 출결 이력 (최근 10건 테이블, 페이지네이션) | L1:Employee > L2:스케줄 > L3:이력 | batch:22
-- [ ] WI-063-feat 신청 유형 그리드 + 휴가 신청 폼 (7유형 카드, 3단계 폼) | L1:Employee > L2:신청 > L3:휴가폼 | batch:23
-- [ ] WI-064-feat 근태 정정 폼 + 신청 이력 (정정폼, 이력 테이블) | L1:Employee > L2:신청 > L3:정정이력 | batch:24
-- [ ] WI-065-feat 알림 수신함 (5탭, 8알림, 미읽음, 상세 드로어) | L1:Employee > L2:수신함 > L3:알림 | batch:25
-- [ ] WI-066-feat 직원 문서 (서명수신함, PDF뷰어+서명패드, 보관함) | L1:Employee > L2:문서 > L3:서명 | batch:26
-- [ ] WI-067-feat 직원 프로필 (기본정보, 연락처, 휴가잔여, 성과, 1:1) | L1:Employee > L2:프로필 > L3:전체 | batch:27
+- [x] WI-063-feat 신청 유형 그리드 + 휴가 신청 폼 (7유형 카드, 3단계 폼) | L1:Employee > L2:신청 > L3:휴가폼 | batch:23
+- [x] WI-064-feat 근태 정정 폼 + 신청 이력 (정정폼, 이력 테이블) | L1:Employee > L2:신청 > L3:정정이력 | batch:24
+- [x] WI-065-feat 알림 수신함 (5탭, 8알림, 미읽음, 상세 드로어) | L1:Employee > L2:수신함 > L3:알림 | batch:25
+- [x] WI-066-feat 직원 문서 (서명수신함, PDF뷰어+서명패드, 보관함) | L1:Employee > L2:문서 > L3:서명 | batch:26
+- [x] WI-067-feat 직원 프로필 (기본정보, 연락처, 휴가잔여, 성과, 1:1) | L1:Employee > L2:프로필 > L3:전체 | batch:27
 
 ## Phase 15: Platform Console (플랫폼 운영)
 
 ### L1: Platform > L2: DB + 대시보드 + 테넌트 + 빌링 + 기타
-- [ ] WI-068-feat Platform DB 스키마 (Plan, BillingAccount, Invoice, SupportTicket, AuditLog + 시드) | L1:Platform > L2:DB > L3:플랫폼모델 | batch:22
-- [ ] WI-069-feat 플랫폼 대시보드 (4 KPI, 운영큐, 헬스, 테넌트변경, 보안시그널) | L1:Platform > L2:대시보드 > L3:운영 | batch:23
-- [ ] WI-070-feat 테넌트 관리 (필터, 테이블, 상세 드로어) | L1:Platform > L2:테넌트 > L3:관리 | batch:24
-- [ ] WI-071-feat 플랜 & 빌링 (4 KPI, 플랜카탈로그, 결제계정, 인보이스) | L1:Platform > L2:빌링 > L3:플랜 | batch:25
-- [ ] WI-072-feat 서포트 + 모니터링 (티켓큐, SLA, API메트릭, 업타임) | L1:Platform > L2:서포트 > L3:모니터링 | batch:26
-- [ ] WI-073-feat 감사/보안 + 플랫폼 설정 (감사로그, 피처플래그, 시스템설정) | L1:Platform > L2:감사설정 > L3:보안 | batch:27
+- [x] WI-068-feat Platform DB 스키마 (Plan, BillingAccount, Invoice, SupportTicket, AuditLog + 시드) | L1:Platform > L2:DB > L3:플랫폼모델 | batch:22
+- [x] WI-069-feat 플랫폼 대시보드 (4 KPI, 운영큐, 헬스, 테넌트변경, 보안시그널) | L1:Platform > L2:대시보드 > L3:운영 | batch:23
+- [x] WI-070-feat 테넌트 관리 (필터, 테이블, 상세 드로어) | L1:Platform > L2:테넌트 > L3:관리 | batch:24
+- [x] WI-071-feat 플랜 & 빌링 (4 KPI, 플랜카탈로그, 결제계정, 인보이스) | L1:Platform > L2:빌링 > L3:플랜 | batch:25
+- [x] WI-072-feat 서포트 + 모니터링 (티켓큐, SLA, API메트릭, 업타임) | L1:Platform > L2:서포트 > L3:모니터링 | batch:26
+- [x] WI-073-feat 감사/보안 + 플랫폼 설정 (감사로그, 피처플래그, 시스템설정) | L1:Platform > L2:감사설정 > L3:보안 | batch:27
 
 ## Phase 16: Landing (랜딩)
 
 ### L1: Public > L2: 랜딩
-- [ ] WI-074-feat 랜딩 페이지 (히어로, 6기능카드, 3역할카드, 푸터, 반응형) | L1:Public > L2:랜딩 > L3:마케팅 | batch:28
-- [ ] WI-075-feat 인덱스 네비게이션 허브 (3권한 레이어, 모듈 링크 그리드) | L1:Public > L2:인덱스 > L3:허브 | batch:29
+- [x] WI-074-feat 랜딩 페이지 (히어로, 6기능카드, 3역할카드, 푸터, 반응형) | L1:Public > L2:랜딩 > L3:마케팅 | batch:28
+- [x] WI-075-feat 인덱스 네비게이션 허브 (3권한 레이어, 모듈 링크 그리드) | L1:Public > L2:인덱스 > L3:허브 | batch:29
 
 ## Phase 17: Testing & Polish (테스트)
 
 ### L1: QA > L2: 테스트
-- [ ] WI-076-test E2E 테스트 (Playwright: 로그인→대시보드→People→Attendance 핵심 플로우) | L1:QA > L2:E2E > L3:핵심플로우 | batch:28
-- [ ] WI-077-test 유닛 + API 테스트 (Vitest: 모듈별 비즈니스 로직, API Route, 커버리지 70%+) | L1:QA > L2:유닛 > L3:API | batch:29
-- [ ] WI-078-chore 반응형 + 접근성 + i18n 기본 구조 | L1:QA > L2:폴리시 > L3:반응형접근성 | batch:30
+- [x] WI-076-test E2E 테스트 (Playwright: 로그인→대시보드→People→Attendance 핵심 플로우) | L1:QA > L2:E2E > L3:핵심플로우 | batch:28
+- [x] WI-077-test 유닛 + API 테스트 (Vitest: 모듈별 비즈니스 로직, API Route, 커버리지 70%+) | L1:QA > L2:유닛 > L3:API | batch:29
+- [x] WI-078-chore 반응형 + 접근성 + i18n 기본 구조 | L1:QA > L2:폴리시 > L3:반응형접근성 | batch:30
