@@ -9,6 +9,12 @@
       "rules": {
         "no-unused-vars": "off"
       }
+    },
+    {
+      "files": ["**/*.test.ts", "**/__mocks__/**"],
+      "rules": {
+        "no-unused-vars": "off"
+      }
     }
   ]
 }
