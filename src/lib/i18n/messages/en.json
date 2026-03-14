@@ -1,0 +1,68 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "filter": "Filter",
+    "reset": "Reset",
+    "loading": "Loading...",
+    "noData": "No data available",
+    "error": "An error occurred",
+    "success": "Successfully completed",
+    "required": "This field is required",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "showMore": "Show more",
+    "showLess": "Show less"
+  },
+  "nav": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "people": "People",
+    "attendance": "Attendance",
+    "leave": "Leave",
+    "workflow": "Workflow",
+    "documents": "Documents",
+    "payroll": "Payroll",
+    "performance": "Performance",
+    "recruiting": "Recruiting",
+    "reports": "Reports",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Sign in",
+    "logout": "Sign out",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password",
+    "rememberMe": "Remember me"
+  },
+  "a11y": {
+    "skipToContent": "Skip to content",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "openModal": "Open modal",
+    "closeModal": "Close modal",
+    "openDrawer": "Open drawer",
+    "closeDrawer": "Close drawer",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "sortAscending": "Sort ascending",
+    "sortDescending": "Sort descending"
+  },
+  "pagination": {
+    "page": "Page",
+    "of": "of",
+    "rowsPerPage": "Rows per page",
+    "showing": "Showing",
+    "total": "Total"
+  }
+}

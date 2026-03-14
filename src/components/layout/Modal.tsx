@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 type ModalSize = "sm" | "md" | "lg";
 
@@ -29,7 +30,7 @@ function Modal({
   footer,
   className = "",
 }: ModalProps) {
-  const modalRef = useRef<HTMLDivElement>(null);
+  const trapRef = useFocusTrap<HTMLDivElement>(open);
 
   useEffect(() => {
     if (!open) return;
@@ -59,7 +60,7 @@ function Modal({
 
       {/* Modal panel */}
       <div
-        ref={modalRef}
+        ref={trapRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
