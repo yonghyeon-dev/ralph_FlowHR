@@ -963,6 +963,10 @@ ${rag_context}"
 
       log "  [Worker $idx] PR 생성: $pr_branch"
 
+      # 이전 실패로 남은 동명 브랜치 정리 (로컬 + remote)
+      git branch -D "$pr_branch" 2>/dev/null || true
+      git push origin --delete "$pr_branch" 2>/dev/null || true
+
       # worker 브랜치를 PR용 브랜치명으로 rename 후 push
       git branch -m "$branch" "$pr_branch" 2>/dev/null || {
         log "  [Worker $idx] ❌ 브랜치 rename 실패"
@@ -1004,14 +1008,14 @@ ${rag_context}"
         record_pattern "$wi" "conflict" "$changed_files" "$elapsed" || true
       fi
 
-      # rename한 브랜치 로컬에서 삭제
-      git branch -D "$pr_branch" 2>/dev/null || true
     fi
 
-    # Cleanup worktree & branch
+    # Cleanup: worktree 먼저 제거 → 브랜치 삭제 (순서 중요)
     git worktree remove "$wt_path" --force 2>/dev/null || {
       log "WARN: worktree 제거 실패 — $wt_path (수동 정리 필요)"
     }
+    # rename 후 브랜치명이 바뀌었을 수 있으므로 둘 다 시도
+    git branch -D "$pr_branch" 2>/dev/null || true
     git branch -D "$branch" 2>/dev/null || true
   done
 
