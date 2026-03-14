@@ -51,7 +51,7 @@ function AppShell({ header, sidebar, children, className = "" }: AppShellProps) 
       </div>
 
       {/* Main content */}
-      <main className="overflow-y-auto bg-surface-canvas p-sp-6">
+      <main id="main-content" className="overflow-y-auto bg-surface-canvas p-sp-6">
         {children}
       </main>
 

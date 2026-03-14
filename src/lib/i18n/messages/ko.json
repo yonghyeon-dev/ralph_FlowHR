@@ -1,0 +1,68 @@
+{
+  "common": {
+    "save": "저장",
+    "cancel": "취소",
+    "confirm": "확인",
+    "delete": "삭제",
+    "edit": "수정",
+    "add": "추가",
+    "close": "닫기",
+    "back": "뒤로",
+    "next": "다음",
+    "previous": "이전",
+    "search": "검색",
+    "filter": "필터",
+    "reset": "초기화",
+    "loading": "로딩 중...",
+    "noData": "데이터가 없습니다",
+    "error": "오류가 발생했습니다",
+    "success": "성공적으로 처리되었습니다",
+    "required": "필수 항목입니다",
+    "selectAll": "전체 선택",
+    "deselectAll": "전체 해제",
+    "showMore": "더 보기",
+    "showLess": "접기"
+  },
+  "nav": {
+    "home": "홈",
+    "dashboard": "대시보드",
+    "people": "인사관리",
+    "attendance": "근태관리",
+    "leave": "휴가관리",
+    "workflow": "결재",
+    "documents": "문서",
+    "payroll": "급여",
+    "performance": "성과",
+    "recruiting": "채용",
+    "reports": "리포트",
+    "settings": "설정"
+  },
+  "auth": {
+    "login": "로그인",
+    "logout": "로그아웃",
+    "email": "이메일",
+    "password": "비밀번호",
+    "forgotPassword": "비밀번호 찾기",
+    "rememberMe": "로그인 상태 유지"
+  },
+  "a11y": {
+    "skipToContent": "본문 바로가기",
+    "openMenu": "메뉴 열기",
+    "closeMenu": "메뉴 닫기",
+    "openModal": "모달 열기",
+    "closeModal": "모달 닫기",
+    "openDrawer": "드로어 열기",
+    "closeDrawer": "드로어 닫기",
+    "previousPage": "이전 페이지",
+    "nextPage": "다음 페이지",
+    "sortAscending": "오름차순 정렬",
+    "sortDescending": "내림차순 정렬"
+  },
+  "pagination": {
+    "page": "페이지",
+    "of": "/",
+    "rowsPerPage": "페이지당 행 수",
+    "showing": "표시 중",
+    "total": "전체"
+  }
+}
